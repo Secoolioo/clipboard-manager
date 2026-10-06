@@ -11,6 +11,11 @@ public abstract class PopupRow
     public virtual bool IsSelectable => false;
 
     public virtual string AutomationName => string.Empty;
+
+    /// <summary>1-based position among the entries (screen readers announce "3 of 12"); 0 for non-entries.</summary>
+    public int Position { get; set; }
+
+    public int SetSize { get; set; }
 }
 
 public sealed class HeaderRow : PopupRow

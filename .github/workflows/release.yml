@@ -44,25 +44,32 @@ jobs:
 
       - name: Check maintainer commit identities
         shell: pwsh
+        env:
+          FORBIDDEN_IDENTITIES: ${{ secrets.FORBIDDEN_IDENTITIES }}
         run: ./build/check-identity.ps1
 
-      - name: Restore, build, test
+      - name: Restore (locked)
+        run: dotnet restore ClipboardManager.sln --locked-mode
+
+      - name: Build
+        run: dotnet build ClipboardManager.sln -c Release --no-restore
+
+      - name: Test (including real-clipboard integration tests)
         env:
           CM_INTEGRATION: "1"
-        run: |
-          dotnet restore ClipboardManager.sln --locked-mode
-          dotnet build ClipboardManager.sln -c Release --no-restore
-          dotnet test --solution ClipboardManager.sln -c Release --no-build
+        run: dotnet test --solution ClipboardManager.sln -c Release --no-build
 
       - name: Publish release files
         shell: pwsh
         run: ./build/publish-release.ps1 -Version '${{ steps.version.outputs.version }}'
 
-      - name: Self-test and path check
+      - name: Self-test the x64 EXE
         shell: pwsh
-        run: |
-          ./build/selftest.ps1 -Exe artifacts/release/ClipboardManager.exe -Clipboard
-          ./build/check-paths.ps1 -Path artifacts/release/ClipboardManager.exe, artifacts/release/ClipboardManager-arm64.exe
+        run: ./build/selftest.ps1 -Exe artifacts/release/ClipboardManager.exe -Clipboard
+
+      - name: Check the EXEs for build-machine paths
+        shell: pwsh
+        run: ./build/check-paths.ps1 -Path artifacts/release/ClipboardManager.exe, artifacts/release/ClipboardManager-arm64.exe
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

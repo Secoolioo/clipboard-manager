@@ -30,14 +30,20 @@ public sealed class ClipboardIntegrationTests
 
     private static async Task<ClipboardSnapshot> ReadAsync(ClipboardGate gate, CaptureSettings? settings = null, IntPtr ownWindow = default)
     {
+        var snapshot = await TryReadAsync(gate, settings, ownWindow, TimeSpan.FromSeconds(5));
+        Assert.True(snapshot is not null, "reader produced no snapshot");
+        return snapshot!;
+    }
+
+    private static async Task<ClipboardSnapshot?> TryReadAsync(ClipboardGate gate, CaptureSettings? settings, IntPtr ownWindow, TimeSpan wait)
+    {
         using var reader = new ClipboardReader(ownWindow, gate, FileLog.Null) { Settings = settings ?? CaptureSettings.Default };
         var read = new TaskCompletionSource<ClipboardSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
         reader.SnapshotRead += snapshot => read.TrySetResult(snapshot);
         reader.Start();
         reader.Signal(null);
-        var done = await Task.WhenAny(read.Task, Task.Delay(5000));
-        Assert.True(done == read.Task, "reader produced no snapshot");
-        return await read.Task;
+        var done = await Task.WhenAny(read.Task, Task.Delay(wait));
+        return done == read.Task ? await read.Task : null;
     }
 
     /// <summary>Puts text plus optional extra formats on the clipboard, the way other apps do.</summary>
@@ -88,16 +94,36 @@ public sealed class ClipboardIntegrationTests
     });
 
     [Fact]
-    public Task Own_writes_are_recognized() => WithOwnerWindow(async owner =>
+    public Task Own_writes_are_not_read_back() => WithOwnerWindow(async owner =>
     {
         Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
         using var gate = new ClipboardGate();
         await new ClipboardWriter(owner, gate, FileLog.Null).WriteAsync("ours");
 
-        var snapshot = await ReadAsync(gate, ownWindow: owner);
+        // Fast path: the sequence of our own write is skipped without even opening the clipboard.
+        Assert.Null(await TryReadAsync(gate, null, owner, TimeSpan.FromSeconds(1)));
 
+        // Second line of defence: we are the clipboard owner.
+        gate.OwnWriteSequence = 0;
+        var snapshot = await ReadAsync(gate, ownWindow: owner);
         Assert.Equal(SkipReason.OwnWrite, snapshot.ReaderSkip);
         Assert.Null(snapshot.Text);
+    });
+
+    [Fact]
+    public Task Suppressed_sequences_are_never_read() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        Put(owner, "copied while paused");
+        var gate = new ClipboardGate();
+        using var reader = new ClipboardReader(IntPtr.Zero, gate, FileLog.Null);
+        var read = new TaskCompletionSource<ClipboardSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
+        reader.SnapshotRead += snapshot => read.TrySetResult(snapshot);
+        reader.SuppressThrough(User32.GetClipboardSequenceNumber(), SkipReason.Paused);
+        reader.Start();
+        reader.Signal(null);
+
+        Assert.NotSame(read.Task, await Task.WhenAny(read.Task, Task.Delay(1000)));
     });
 
     [Theory]

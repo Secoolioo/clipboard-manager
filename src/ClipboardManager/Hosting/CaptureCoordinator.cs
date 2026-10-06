@@ -24,8 +24,12 @@ internal sealed class CaptureCoordinator : IDisposable
     private readonly CurrentClipTracker _tracker;
     private readonly Dispatcher _dispatcher;
     private readonly FileLog _log;
+    private const long IgnoreBurstMilliseconds = 200;
+
     private readonly DispatcherTimer _pauseTimer;
     private bool _listening;
+    private uint _lastNotifiedSequence;
+    private long _ignoreBurstUntil;
 
     public CaptureCoordinator(HostWindow host, ClipboardReader reader, DbWorker worker, MonitoringState monitoring, CurrentClipTracker tracker, FileLog log)
     {
@@ -64,8 +68,8 @@ internal sealed class CaptureCoordinator : IDisposable
             _log.Error(Category, "AddClipboardFormatListener failed");
         }
 
-        // Capture whatever is in the clipboard right now, so "current" is known from the start.
-        OnClipboardUpdated(this, EventArgs.Empty);
+        // Deliberately no initial capture: whatever was copied before the app ran (perhaps during
+        // a pause or an "ignore next copy" of a previous run) is not recorded.
         ArmPauseTimer();
     }
 
@@ -83,10 +87,35 @@ internal sealed class CaptureCoordinator : IDisposable
 
     private void OnClipboardUpdated(object? sender, EventArgs e)
     {
-        var skip = _monitoring.OnClipboardChanged();
+        var sequence = User32.GetClipboardSequenceNumber();
+        if (sequence == _lastNotifiedSequence)
+        {
+            return; // repeated notification for the same change
+        }
+
+        _lastNotifiedSequence = sequence;
+
+        // Neither our own write nor an emptied clipboard is "a copy": they must not use up a
+        // pending "ignore next copy" (none of these calls needs the clipboard to be open).
+        var owner = User32.GetClipboardOwner();
+        if (sequence == _reader.Gate.OwnWriteSequence || (owner != IntPtr.Zero && owner == _host.Handle) || User32.CountClipboardFormats() == 0)
+        {
+            return;
+        }
+
+        // One copy often produces several notifications (OLE copy + flush); "ignore next copy"
+        // covers that whole burst.
+        var now = Environment.TickCount64;
+        var skip = now < _ignoreBurstUntil ? SkipReason.IgnoredOnce : _monitoring.OnClipboardChanged();
+        if (skip == SkipReason.IgnoredOnce && now >= _ignoreBurstUntil)
+        {
+            _ignoreBurstUntil = now + IgnoreBurstMilliseconds;
+        }
+
         if (skip != SkipReason.None)
         {
-            _tracker.ContentSkipped(User32.GetClipboardSequenceNumber(), skip);
+            _reader.SuppressThrough(sequence, skip);
+            _tracker.ContentSkipped(sequence, skip);
             return;
         }
 
@@ -112,20 +141,17 @@ internal sealed class CaptureCoordinator : IDisposable
             return;
         }
 
-        var text = snapshot.Text!;
+        var text = TextMetrics.NormalizeSurrogates(snapshot.Text!);
         var hash = ContentHash.Compute(text);
         _ = CaptureAsync(snapshot.Sequence, text, hash);
     }
 
     private async Task CaptureAsync(uint sequence, string text, byte[] hash)
     {
-        var result = await _worker.CaptureAsync(text, hash, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()).ConfigureAwait(false);
-        if (result is null)
-        {
-            return;
-        }
-
-        if (result.Entry is { } entry)
+        // New and promoted entries carry the sequence in their change batch (applied together with
+        // the index). An unchanged capture publishes no batch, so mark it current here.
+        var result = await _worker.CaptureAsync(text, hash, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), sequence).ConfigureAwait(false);
+        if (result is { Outcome: CaptureOutcome.Unchanged, Entry: { } entry })
         {
             await _dispatcher.InvokeAsync(() => _tracker.EntryIsCurrent(sequence, entry.Id));
         }

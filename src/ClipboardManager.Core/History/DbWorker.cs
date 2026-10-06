@@ -41,14 +41,14 @@ public sealed class DbWorker : IAsyncDisposable
             new StoreStatus(StoreMode.MemoryFallback, StoreNotice.DatabaseUnavailable),
             requiresStore: false);
 
-    public Task<CaptureResult?> CaptureAsync(string text, byte[] hash, long nowMs) =>
+    public Task<CaptureResult?> CaptureAsync(string text, byte[] hash, long nowMs, uint? sequence = null) =>
         Enqueue<CaptureResult?>(
             store =>
             {
                 var result = store.Capture(text, hash, nowMs);
                 return result.Outcome == CaptureOutcome.Unchanged
                     ? (result, null)
-                    : (result, Batch(result.Entry, result.Removed));
+                    : (result, Batch(result.Entry, result.Removed) with { CapturedSequence = sequence });
             },
             null);
 
@@ -63,7 +63,7 @@ public sealed class DbWorker : IAsyncDisposable
         Enqueue(store =>
         {
             var (entry, removed) = store.SetPinned(id, pinned, nowMs);
-            return (entry, entry is null ? null : Batch(entry, removed));
+            return (entry, entry is null && removed.Count == 0 ? null : Batch(entry, removed));
         }, (HistoryEntry?)null);
 
     public Task<DeletedEntry?> DeleteAsync(long id) =>
@@ -83,12 +83,15 @@ public sealed class DbWorker : IAsyncDisposable
     public Task<bool> ClearAsync(bool includePinned) =>
         Enqueue(store => (true, Reset(store.Clear(includePinned))), false);
 
-    public Task<StoreMode?> SetMemoryOnlyAsync(bool memoryOnly) =>
+    public Task<StoreMode?> SetMemoryOnlyAsync(bool memoryOnly, bool discardMemoryEntries = false) =>
         Enqueue(store =>
         {
-            var entries = store.SetMemoryOnly(memoryOnly);
+            var entries = store.SetMemoryOnly(memoryOnly, discardMemoryEntries);
             return ((StoreMode?)store.Mode, Reset(entries));
         }, (StoreMode?)null);
+
+    public Task<int> CountMemoryOnlyEntriesAsync() =>
+        Enqueue(store => (store.CountMemoryOnlyEntries(), (HistoryChangeBatch?)null), 0);
 
     public Task<bool> SetLimitsAsync(HistoryLimits limits) =>
         Enqueue(store =>

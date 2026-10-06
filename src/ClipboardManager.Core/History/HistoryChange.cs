@@ -31,6 +31,9 @@ public sealed record HistoryChangeBatch(
     IReadOnlyList<long> Removed,
     IReadOnlyList<HistoryEntry>? ResetTo = null)
 {
+    /// <summary>For captures: the clipboard sequence number the entry came from, so the UI can mark it current in the same step.</summary>
+    public uint? CapturedSequence { get; init; }
+
     public static readonly IReadOnlyList<HistoryEntry> NoEntries = [];
     public static readonly IReadOnlyList<long> NoIds = [];
 }

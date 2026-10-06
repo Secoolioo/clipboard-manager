@@ -41,6 +41,10 @@ internal interface ISettingsHost
 
     Task<int> CountExceedingAsync(int maxItems);
 
+    Task<int> CountMemoryOnlyEntriesAsync();
+
+    void SetMemoryOnly(bool memoryOnly, bool discardMemoryEntries);
+
     Task ClearHistoryAsync(Window owner);
 
     IReadOnlyList<string> RecentSources { get; }

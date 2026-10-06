@@ -86,6 +86,23 @@ public sealed class SearchAndPreviewTests
     }
 
     [Fact]
+    public void Text_that_fits_exactly_is_not_truncated()
+    {
+        var text = new string('a', 20);
+        Assert.Equal(text, PreviewText.ForRow(text, maxLength: 20));
+    }
+
+    [Fact]
+    public void Truncation_never_splits_an_emoji()
+    {
+        var text = new string('a', 18) + "👋👋👋";
+        var preview = PreviewText.ForRow(text, maxLength: 20);
+
+        Assert.EndsWith("…", preview, StringComparison.Ordinal);
+        Assert.False(char.IsHighSurrogate(preview[^2]));
+    }
+
+    [Fact]
     public void Snippet_starts_near_a_late_match()
     {
         var text = new string('x', 200) + " needle here";

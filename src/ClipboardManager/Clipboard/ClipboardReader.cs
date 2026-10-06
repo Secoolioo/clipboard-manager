@@ -24,6 +24,8 @@ internal sealed class ClipboardReader : IDisposable
     private volatile bool _stopping;
     private volatile string? _foregroundExe;
     private volatile CaptureSettings _settings = CaptureSettings.Default;
+    private volatile uint _suppressThrough;
+    private volatile SkipReason _suppressReason;
     private uint _lastProcessedSequence;
 
     public ClipboardReader(IntPtr ownWindow, ClipboardGate gate, FileLog log)
@@ -31,7 +33,9 @@ internal sealed class ClipboardReader : IDisposable
         _ownWindow = ownWindow;
         Gate = gate;
         _log = log;
-        _thread = new Thread(Run) { IsBackground = true, Name = "Clipboard reader", Priority = ThreadPriority.BelowNormal };
+
+        // Normal priority on purpose: this thread holds the system-wide clipboard lock while it reads.
+        _thread = new Thread(Run) { IsBackground = true, Name = "Clipboard reader" };
     }
 
     /// <summary>Raised on the reader thread with what was seen (text only when it may be stored).</summary>
@@ -54,11 +58,28 @@ internal sealed class ClipboardReader : IDisposable
         _signal.Set();
     }
 
+    /// <summary>
+    /// The UI decided that clipboard content up to <paramref name="sequence"/> must not be stored
+    /// (pause, "ignore next copy"). A read that is already pending honours it too, so "latest wins"
+    /// can never store content whose notification was skipped.
+    /// </summary>
+    public void SuppressThrough(uint sequence, SkipReason reason)
+    {
+        _suppressReason = reason;
+        _suppressThrough = sequence;
+    }
+
     public void Dispose()
     {
         _stopping = true;
         _signal.Set();
-        _thread.Join(TimeSpan.FromSeconds(2));
+        if (_thread.IsAlive && !_thread.Join(TimeSpan.FromSeconds(2)))
+        {
+            // Still blocked in a delayed-render read: leave the event alive, the background thread dies with the process.
+            _log.Warning(Category, "Reader thread did not stop in time");
+            return;
+        }
+
         _signal.Dispose();
     }
 
@@ -66,7 +87,15 @@ internal sealed class ClipboardReader : IDisposable
     {
         while (true)
         {
-            _signal.WaitOne();
+            try
+            {
+                _signal.WaitOne();
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+
             if (_stopping)
             {
                 return;
@@ -90,6 +119,13 @@ internal sealed class ClipboardReader : IDisposable
         var sequence = User32.GetClipboardSequenceNumber();
         if (sequence == _lastProcessedSequence || sequence == Gate.OwnWriteSequence)
         {
+            return;
+        }
+
+        if (sequence <= _suppressThrough)
+        {
+            // Skipped by the UI (paused / ignored); do not even open the clipboard.
+            _lastProcessedSequence = sequence;
             return;
         }
 
@@ -159,6 +195,11 @@ internal sealed class ClipboardReader : IDisposable
         if (sequence == Gate.OwnWriteSequence)
         {
             return new ClipboardSnapshot(sequence, SkipReason.OwnWrite, null, null);
+        }
+
+        if (sequence <= _suppressThrough)
+        {
+            return new ClipboardSnapshot(sequence, _suppressReason, null, null);
         }
 
         var owner = User32.GetClipboardOwner();

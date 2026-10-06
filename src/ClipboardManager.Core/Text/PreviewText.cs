@@ -36,8 +36,8 @@ public static class PreviewText
 
             var trailing = CountEdgeWhitespace(firstLine, fromStart: false);
             builder.Append(SpaceMarker, Math.Min(leading, 3));
-            AppendCollapsed(builder, firstLine[leading..^trailing], maxLength);
-            if (builder.Length < maxLength)
+            AppendCollapsed(builder, firstLine[leading..^trailing], maxLength + 1);
+            if (builder.Length <= maxLength)
             {
                 builder.Append(SpaceMarker, Math.Min(trailing, 3));
             }
@@ -47,14 +47,10 @@ public static class PreviewText
             // Multi-line: everything from the first non-blank line on, joined into one line, so
             // "{" or "Best regards," alone do not hide what the entry is.
             var start = span.IndexOf(firstLine);
-            AppendCollapsed(builder, span[Math.Max(0, start)..].Trim(), maxLength);
+            AppendCollapsed(builder, span[Math.Max(0, start)..].Trim(), maxLength + 1);
         }
 
-        if (builder.Length >= maxLength)
-        {
-            builder.Length = maxLength - 1;
-            builder.Append('…');
-        }
+        Truncate(builder, maxLength);
 
         if (endsWithNewline && !isMultiline)
         {
@@ -74,16 +70,34 @@ public static class PreviewText
         }
 
         var start = Math.Max(0, matchIndex - 30);
-        var window = text.AsSpan(start, Math.Min(text.Length - start, maxLength * 2));
-        var builder = new StringBuilder(maxLength + 2).Append('…');
-        AppendCollapsed(builder, window, maxLength);
-        if (builder.Length >= maxLength)
+        if (start > 0 && char.IsLowSurrogate(text[start]))
         {
-            builder.Length = maxLength - 1;
-            builder.Append('…');
+            start--; // never start in the middle of an emoji
         }
 
+        var window = text.AsSpan(start, Math.Min(text.Length - start, maxLength * 2));
+        var builder = new StringBuilder(maxLength + 2).Append('…');
+        AppendCollapsed(builder, window, maxLength + 1);
+        Truncate(builder, maxLength);
         return builder.ToString();
+    }
+
+    /// <summary>Cuts to <paramref name="maxLength"/> characters including the ellipsis, without splitting a surrogate pair.</summary>
+    private static void Truncate(StringBuilder builder, int maxLength)
+    {
+        if (builder.Length <= maxLength)
+        {
+            return;
+        }
+
+        var length = maxLength - 1;
+        if (length > 0 && char.IsHighSurrogate(builder[length - 1]))
+        {
+            length--;
+        }
+
+        builder.Length = length;
+        builder.Append('…');
     }
 
     private static ReadOnlySpan<char> FirstNonBlankLine(ReadOnlySpan<char> text, out bool isMultiline)

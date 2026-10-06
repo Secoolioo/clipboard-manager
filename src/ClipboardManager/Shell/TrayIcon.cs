@@ -24,6 +24,7 @@ internal sealed class TrayIcon : IDisposable
     private bool _paused;
     private string _tooltip = string.Empty;
     private int _retryIndex;
+    private (string Title, string Text, bool Warning)? _pending;
 
     public TrayIcon(HostWindow host, FileLog log)
     {
@@ -77,7 +78,12 @@ internal sealed class TrayIcon : IDisposable
     public void RefreshIcon()
     {
         var old = _icon;
-        var size = User32.GetSystemMetricsForDpi(User32.SM_CXSMICON, User32.GetDpiForSystem());
+
+        // The taskbar's own DPI (it changes with the primary display); the system DPI of a
+        // per-monitor-aware process is frozen at startup.
+        var taskbar = User32.FindWindow("Shell_TrayWnd", null);
+        var dpi = taskbar != IntPtr.Zero ? User32.GetDpiForWindow(taskbar) : 0;
+        var size = User32.GetSystemMetricsForDpi(User32.SM_CXSMICON, dpi != 0 ? dpi : User32.GetDpiForSystem());
         var color = TaskbarUsesLightTheme() ? Color.FromRgb(0x1A, 0x1A, 0x1A) : Colors.White;
         _icon = User32.IconFromPng(BrandIcon.RenderPng(BrandIcon.CreateGlyph(color, _paused), size), size);
         if (_added)
@@ -97,6 +103,8 @@ internal sealed class TrayIcon : IDisposable
     {
         if (!_added)
         {
+            // Right after login the icon may not exist yet; show it once the icon is added.
+            _pending = (title, text, warning);
             return;
         }
 
@@ -155,6 +163,12 @@ internal sealed class TrayIcon : IDisposable
             Shell32.Shell_NotifyIcon(Shell32.NIM_SETVERSION, ref data);
             _added = true;
             _retryIndex = 0;
+            if (_pending is { } pending)
+            {
+                _pending = null;
+                Notify(pending.Title, pending.Text, pending.Warning);
+            }
+
             return;
         }
 

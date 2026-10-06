@@ -35,21 +35,38 @@ internal sealed partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        if (_options.SelfTest)
+        try
         {
-            var exitCode = await SelfTest.RunAsync(this, _options).ConfigureAwait(true);
-            Shutdown(exitCode);
-            return;
-        }
+            if (_options.SelfTest)
+            {
+                var exitCode = await SelfTest.RunAsync(this, _options).ConfigureAwait(true);
+                Shutdown(exitCode);
+                return;
+            }
 
-        _controller = new AppController(this, _options);
-        _controller.Start();
+            _controller = new AppController(this, _options);
+            _controller.Start();
+        }
+        catch (Exception ex)
+        {
+            // A half-started background app is worse than a clear failure.
+            _options.Log.Error(Category, "Startup failed", ex);
+            if (!_options.SelfTest)
+            {
+                Interop.User32.MessageBox(IntPtr.Zero, Localization.Strings.StartupFailed, Localization.Strings.AppName, Interop.User32.MB_ICONERROR);
+            }
+
+            _controller?.Dispose();
+            Shutdown(1);
+        }
     }
 
     protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
     {
-        // WPF shuts the app down right after this; every capture is already committed,
-        // so only a short, bounded close is needed.
+        // WPF raises this on WM_QUERYENDSESSION and calls Shutdown() itself unless cancelled.
+        // Cancelling would block (or get the app killed during) logoff, so the app exits here;
+        // every capture is already committed, so only a short, bounded close is needed. If the
+        // user aborts the shutdown, the app is started again at the next sign-in.
         _controller?.ShutdownForSession();
         base.OnSessionEnding(e);
     }

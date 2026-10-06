@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
@@ -39,6 +40,7 @@ internal sealed partial class PopupWindow : Window
 
     private const int ClickGuardMilliseconds = 150;
 
+    private readonly System.Windows.Threading.DispatcherTimer _announceResults;
     private long _shownAt;
     private bool _allowClose;
 
@@ -47,6 +49,19 @@ internal sealed partial class PopupWindow : Window
         ViewModel = viewModel;
         DataContext = viewModel;
         InitializeComponent();
+        _announceResults = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _announceResults.Tick += (_, _) =>
+        {
+            _announceResults.Stop();
+            Announce(ResultsLive);
+        };
+        IsVisibleChanged += (_, _) =>
+        {
+            if (!IsVisible)
+            {
+                _announceResults.Stop();
+            }
+        };
         BuildHints();
         ApplyCompact(viewModel.IsCompact);
         viewModel.PropertyChanged += OnViewModelChanged;
@@ -94,9 +109,13 @@ internal sealed partial class PopupWindow : Window
         StatusGlyph.SetResourceReference(TextBlock.ForegroundProperty, paused || warning ? "SystemFillColorCautionBrush" : "SystemFillColorSuccessBrush");
     }
 
+    /// <summary>True once the user pressed a key, typed or clicked in this session (stops background refreshes).</summary>
+    public bool HasUserInput { get; private set; }
+
     public void MarkShown()
     {
         _shownAt = Environment.TickCount64;
+        HasUserInput = false;
         Search.Focus();
         Keyboard.Focus(Search);
         Search.CaretIndex = Search.Text.Length;
@@ -130,18 +149,34 @@ internal sealed partial class PopupWindow : Window
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(PopupViewModel.Selected) && ViewModel.Selected is { } selected)
+        switch (e.PropertyName)
         {
-            List.ScrollIntoView(selected);
+            case nameof(PopupViewModel.Selected) when ViewModel.Selected is { } selected:
+                List.ScrollIntoView(selected);
+                break;
+            case nameof(PopupViewModel.IsCompact):
+                ApplyCompact(ViewModel.IsCompact);
+                break;
+            case nameof(PopupViewModel.ResultsText) when IsVisible:
+                // Debounced so a screen reader is not interrupted on every keystroke.
+                _announceResults.Stop();
+                _announceResults.Start();
+                break;
+            case nameof(PopupViewModel.InlineMessage) when IsVisible && ViewModel.InlineMessage is not null:
+                Announce(InlineMessageText);
+                break;
         }
-        else if (e.PropertyName == nameof(PopupViewModel.IsCompact))
-        {
-            ApplyCompact(ViewModel.IsCompact);
-        }
+    }
+
+    private static void Announce(UIElement element)
+    {
+        var peer = UIElementAutomationPeer.FromElement(element) ?? UIElementAutomationPeer.CreatePeerForElement(element);
+        peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
     }
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        HasUserInput = true;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var modifiers = Keyboard.Modifiers;
         var searchHasSelection = Search.SelectionLength > 0 && Search.IsKeyboardFocusWithin;
@@ -217,6 +252,7 @@ internal sealed partial class PopupWindow : Window
 
     private void OnPreviewTextInput(object sender, TextCompositionEventArgs e)
     {
+        HasUserInput = true;
         // Typing while a list item has focus (screen-reader navigation) still filters.
         if (!Search.IsKeyboardFocusWithin && !string.IsNullOrEmpty(e.Text) && !char.IsControl(e.Text[0]))
         {
@@ -270,6 +306,7 @@ internal sealed partial class PopupWindow : Window
 
     private void OnItemMouseUp(object sender, MouseButtonEventArgs e)
     {
+        HasUserInput = true;
         if (Environment.TickCount64 - _shownAt < ClickGuardMilliseconds)
         {
             e.Handled = true;
@@ -286,6 +323,7 @@ internal sealed partial class PopupWindow : Window
 
     private void OnItemRightDown(object sender, MouseButtonEventArgs e)
     {
+        HasUserInput = true;
         if (sender is ListBoxItem { DataContext: EntryRow row } item)
         {
             ViewModel.Selected = row;

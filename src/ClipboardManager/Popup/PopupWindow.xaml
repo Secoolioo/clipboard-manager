@@ -129,7 +129,10 @@
                      Visibility="{Binding Query, Converter={StaticResource CollapsedIf}}" />
         </Grid>
         <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="10,0,6,0" VerticalAlignment="Center"
-                    AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="{Binding StatusText}">
+                    AutomationProperties.Name="{Binding StatusText}">
+          <TextBlock x:Name="ResultsLive" Text="{Binding ResultsText}" FontSize="12" Margin="0,0,14,0" VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextFillColorTertiaryBrush}" AutomationProperties.LiveSetting="Polite"
+                     Visibility="{Binding ResultsText, Converter={StaticResource VisibleIf}}" />
           <TextBlock x:Name="StatusGlyph" Style="{StaticResource Glyph}" FontSize="12" Margin="0,0,6,0" Text="&#xE73E;"
                      Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
           <TextBlock Text="{Binding StatusText}" FontSize="12" VerticalAlignment="Center"
@@ -174,6 +177,8 @@
               <Setter Property="Margin" Value="0,1" />
               <Setter Property="HorizontalContentAlignment" Value="Stretch" />
               <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
+              <Setter Property="AutomationProperties.PositionInSet" Value="{Binding Position}" />
+              <Setter Property="AutomationProperties.SizeOfSet" Value="{Binding SetSize}" />
               <EventSetter Event="PreviewMouseLeftButtonUp" Handler="OnItemMouseUp" />
               <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnItemRightDown" />
               <Style.Triggers>
@@ -218,7 +223,7 @@
       </Grid>
 
       <!-- Inline message -->
-      <TextBlock Grid.Row="3" Text="{Binding InlineMessage}" Margin="18,4,18,2" FontSize="12"
+      <TextBlock x:Name="InlineMessageText" Grid.Row="3" Text="{Binding InlineMessage}" Margin="18,4,18,2" FontSize="12"
                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                  AutomationProperties.LiveSetting="Assertive"
                  Visibility="{Binding InlineMessage, Converter={StaticResource VisibleIf}}" />

@@ -35,7 +35,10 @@ of the running version, then exits.
 - With *Don't save detected credentials* (on by default): texts containing private-key blocks or
   tokens with unambiguous formats (GitHub, AWS access key IDs, Slack, Stripe live keys, GitLab).
 - Text larger than 256K characters, images, files.
-- With *Keep history in memory only*: unpinned entries never reach the disk.
+- Whatever is already on the clipboard when the app starts: only copies made while it runs are recorded.
+- With *Keep history in memory only*: unpinned entries never reach the disk while the mode is on.
+  When you turn it off, the app asks whether the entries collected in memory should be saved or
+  discarded.
 
 ## Guarantees checked by automated tests
 
@@ -43,7 +46,11 @@ of the running version, then exits.
 - A canary string never appears in the log, also not through exception messages.
 - After deleting an entry or clearing the history, its text is no longer present in any file in the
   data folder (SQLite `secure_delete` plus WAL truncation) or in SQLite temp files.
-- In memory-only mode the text never appears in the data folder, including when switching the mode.
+- In memory-only mode the text never appears in the data folder, including when switching the
+  mode on, and when switching it off with "discard".
+- Lowering the maximum number of entries scrubs the removed texts like a manual delete.
+- Our own writes, an emptied clipboard and repeated notifications for one copy never use up a
+  pending *Ignore next copy*; a skipped copy is never read later by a pending read.
 
 ## Limits – please read
 

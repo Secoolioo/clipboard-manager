@@ -23,7 +23,7 @@ public static partial class SecretDetector
         | \b(?:AKIA|ASIA)[A-Z0-9]{16}\b
         | \bxox[abprs]-[A-Za-z0-9-]{10,}
         | \b(?:sk|rk)_live_[A-Za-z0-9]{24,}\b
-        | \bglpat-[A-Za-z0-9_-]{20,}\b
+        | \bglpat-[A-Za-z0-9_-]{20,}
         """,
         RegexOptions.IgnorePatternWhitespace | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture)]
     private static partial Regex Pattern();

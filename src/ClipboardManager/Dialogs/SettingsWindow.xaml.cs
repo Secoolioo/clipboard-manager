@@ -20,6 +20,9 @@ internal sealed partial class SettingsWindow : Window
     private bool _loading = true;
     private bool _recordingHotkey;
 
+    /// <summary>While a confirmation dialog is open, re-activation must not reset the controls.</summary>
+    private bool _asking;
+
     public SettingsWindow(ISettingsHost host)
     {
         _host = host;
@@ -27,7 +30,13 @@ internal sealed partial class SettingsWindow : Window
         Logo.Source = new DrawingImage(BrandIcon.CreateColor());
         VersionText.Text = Strings.Version(host.VersionText);
         SourceInitialized += (_, _) => ThemeHelper.RoundCorners(this);
-        Activated += (_, _) => Refresh();
+        Activated += (_, _) =>
+        {
+            if (!_asking)
+            {
+                Refresh();
+            }
+        };
         Closed += (_, _) =>
         {
             if (_recordingHotkey)
@@ -263,29 +272,67 @@ internal sealed partial class SettingsWindow : Window
 
     private async void OnMaxEntriesChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_loading || MaxEntriesBox.SelectedIndex < 0)
+        if (_loading || _asking || MaxEntriesBox.SelectedIndex < 0)
         {
             return;
         }
 
         var value = AppSettings.HistorySizePresets[MaxEntriesBox.SelectedIndex];
-        if (value < _host.Settings.MaxHistoryItems)
+        _asking = true;
+        try
         {
-            var doomed = await _host.CountExceedingAsync(value).ConfigureAwait(true);
-            if (doomed > 0 && ConfirmDialog.Ask(Strings.LimitTitle, Strings.LimitMessage(doomed), Strings.LimitConfirm, owner: this) is null)
+            if (value < _host.Settings.MaxHistoryItems)
             {
-                Refresh();
-                return;
+                var doomed = await _host.CountExceedingAsync(value).ConfigureAwait(true);
+                if (doomed > 0 && ConfirmDialog.Ask(Strings.LimitTitle, Strings.LimitMessage(doomed), Strings.LimitConfirm, owner: this) is null)
+                {
+                    return;
+                }
             }
-        }
 
-        _host.UpdateSettings(s => s with { MaxHistoryItems = value });
+            _host.UpdateSettings(s => s with { MaxHistoryItems = value });
+        }
+        finally
+        {
+            _asking = false;
+            Refresh();
+        }
     }
 
-    private void OnMemoryOnlyClick(object sender, RoutedEventArgs e)
+    private async void OnMemoryOnlyClick(object sender, RoutedEventArgs e)
     {
         var on = MemoryOnlyBox.IsChecked == true;
-        _host.UpdateSettings(s => s with { MemoryOnly = on });
+        if (on)
+        {
+            _host.SetMemoryOnly(true, discardMemoryEntries: false);
+            return;
+        }
+
+        // Switching back to saving: the entries collected in memory only would reach the disk now,
+        // so the user decides whether to keep or discard them.
+        _asking = true;
+        try
+        {
+            var count = await _host.CountMemoryOnlyEntriesAsync().ConfigureAwait(true);
+            var discard = false;
+            if (count > 0)
+            {
+                var answer = ConfirmDialog.Ask(Strings.MemoryOnlyOffTitle, Strings.MemoryOnlyOffMessage(count), Strings.MemoryOnlyOffConfirm, Strings.MemoryOnlyOffDiscard, this);
+                if (answer is null)
+                {
+                    return;
+                }
+
+                discard = answer.Value;
+            }
+
+            _host.SetMemoryOnly(false, discard);
+        }
+        finally
+        {
+            _asking = false;
+            Refresh();
+        }
     }
 
     private async void OnClearHistory(object sender, RoutedEventArgs e) => await _host.ClearHistoryAsync(this).ConfigureAwait(true);
@@ -333,8 +380,12 @@ internal sealed partial class SettingsWindow : Window
 
     // ---- About -----------------------------------------------------------------------------
 
-    private void OnOpenDataFolder(object sender, RoutedEventArgs e) =>
-        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{_host.DataFolder}\"") { UseShellExecute = true })?.Dispose();
+    private void OnOpenDataFolder(object sender, RoutedEventArgs e)
+    {
+        // Full path: a bare "explorer.exe" would be searched in the current directory (e.g. Downloads) first.
+        var explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+        Process.Start(new ProcessStartInfo(explorer, $"\"{_host.DataFolder}\"") { UseShellExecute = false })?.Dispose();
+    }
 
     private void OnLicenses(object sender, RoutedEventArgs e) => _host.ShowLicenses(this);
 

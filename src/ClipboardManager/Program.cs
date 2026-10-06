@@ -47,8 +47,20 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            // Plain Win32 message box: WPF itself may be what failed to load.
             options?.Log.Error("Startup", "Fatal startup failure", ex);
+            if (options?.SelfTest == true)
+            {
+                // Never block an unattended self-test with a dialog; report through the result file.
+                var output = Environment.GetEnvironmentVariable(SelfTest.OutputVariable);
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    File.WriteAllText(output, "FAIL startup: " + Core.Diagnostics.FileLog.Describe(ex) + Environment.NewLine);
+                }
+
+                return 1;
+            }
+
+            // Plain Win32 message box: WPF itself may be what failed to load.
             User32.MessageBox(IntPtr.Zero, Strings.StartupFailed, Strings.AppName, User32.MB_ICONERROR);
             return 1;
         }

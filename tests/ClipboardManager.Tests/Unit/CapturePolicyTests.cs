@@ -19,6 +19,8 @@ public sealed class CapturePolicyTests
 
     private static string StripeKey() => "sk" + "_live_" + new string('a', 24);
 
+    private static string GitLabTokenEndingWithDash() => "gl" + "pat-" + new string('x', 19) + "-";
+
     private static ClipboardSnapshot Text(string text, string? exe = "notepad.exe") => new(1, SkipReason.None, text, exe);
 
     [Fact]
@@ -63,7 +65,7 @@ public sealed class CapturePolicyTests
     [Fact]
     public void Known_credential_formats_are_detected()
     {
-        foreach (var secret in new[] { GitHubToken(), AwsKeyId(), PemKey(), SlackToken(), StripeKey(), "config:\n  token: " + GitHubToken() })
+        foreach (var secret in new[] { GitHubToken(), AwsKeyId(), PemKey(), SlackToken(), StripeKey(), GitLabTokenEndingWithDash(), "config:\n  token: " + GitHubToken() })
         {
             Assert.Equal(SkipReason.LooksLikeSecret, CapturePolicy.Evaluate(Text(secret), CaptureSettings.Default));
         }

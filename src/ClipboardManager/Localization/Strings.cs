@@ -112,6 +112,20 @@ public static partial class Strings
 
     public static string HotkeyMissing => T("Kein Hotkey – in den Einstellungen wählen", "No hotkey – choose one in Settings");
 
+    public static string HotkeyMissingShort => T("kein Hotkey", "no hotkey");
+
+    public static string Matches(int count) => count == 1 ? T("1 Treffer", "1 match") : T($"{count} Treffer", $"{count} matches");
+
+    public static string MemoryOnlyOffTitle => T("Verlauf wieder speichern", "Save history again");
+
+    public static string MemoryOnlyOffMessage(int count) => T(
+        $"Ab jetzt wird der Verlauf wieder gespeichert. {count} Einträge liegen bisher nur im Arbeitsspeicher und würden dabei ebenfalls gespeichert.",
+        $"From now on the history is saved again. {count} entries are currently held in memory only and would be saved as well.");
+
+    public static string MemoryOnlyOffDiscard => T("Diese Einträge stattdessen verwerfen", "Discard those entries instead");
+
+    public static string MemoryOnlyOffConfirm => T("Speichern einschalten", "Turn saving on");
+
     public static string Skipped(SkipReason reason) => reason switch
     {
         SkipReason.Paused => T("Letzte Kopie nicht gespeichert – Aufzeichnung pausiert", "Last copy not saved – recording paused"),

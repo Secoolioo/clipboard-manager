@@ -25,6 +25,7 @@ public sealed class HistoryStore : IDisposable
     private SqliteTransaction? _tx;
     private HistoryLimits _limits;
     private long _nextId;
+    private long _maxLastUsed;
 
     private HistoryStore(AppPaths? paths, HistoryLimits limits, FileLog log)
     {
@@ -96,16 +97,17 @@ public sealed class HistoryStore : IDisposable
 
             CaptureOutcome outcome;
             long id;
+            var now = Monotonic(nowMs);
             if (existing is { } found)
             {
                 id = found;
-                UpdateLastUsed(id, nowMs);
+                UpdateLastUsed(id, now);
                 outcome = CaptureOutcome.Promoted;
             }
             else
             {
                 id = _nextId++;
-                Insert(PersistsUnpinned ? "main" : "mem", id, text, hash, nowMs, nowMs, pinnedAtMs: null);
+                Insert(PersistsUnpinned ? "main" : "mem", id, text, hash, now, now, pinnedAtMs: null);
                 outcome = CaptureOutcome.Inserted;
             }
 
@@ -115,7 +117,7 @@ public sealed class HistoryStore : IDisposable
     }
 
     public HistoryEntry? Promote(long id, long nowMs) =>
-        InTransaction(() => UpdateLastUsed(id, nowMs) ? Find(id) : null);
+        InTransaction(() => UpdateLastUsed(id, Monotonic(nowMs)) ? Find(id) : null);
 
     public (HistoryEntry? Entry, IReadOnlyList<long> Removed) SetPinned(long id, bool pinned, long nowMs)
     {
@@ -128,9 +130,15 @@ public sealed class HistoryStore : IDisposable
             }
 
             var schema = location.Value.InMemory ? "mem" : "main";
-            using (var update = Command($"UPDATE {schema}.entries SET pinned_at = $p WHERE id = $id"))
+            var now = Monotonic(nowMs);
+
+            // An unpinned entry becomes the newest history entry, so retention never deletes the
+            // very entry the user just unpinned.
+            using (var update = Command(pinned
+                ? $"UPDATE {schema}.entries SET pinned_at = $now WHERE id = $id"
+                : $"UPDATE {schema}.entries SET pinned_at = NULL, last_used_at = $now WHERE id = $id"))
             {
-                update.Parameters.AddWithValue("$p", pinned ? nowMs : DBNull.Value);
+                update.Parameters.AddWithValue("$now", now);
                 update.Parameters.AddWithValue("$id", id);
                 update.ExecuteNonQuery();
             }
@@ -148,7 +156,7 @@ public sealed class HistoryStore : IDisposable
 
         if (!pinned && !PersistsUnpinned)
         {
-            PurgeWal();
+            Scrub(PurgeWal);
         }
 
         return result;
@@ -171,7 +179,7 @@ public sealed class HistoryStore : IDisposable
 
         if (deleted is not null)
         {
-            PurgeWal();
+            Scrub(PurgeWal);
         }
 
         return deleted;
@@ -213,14 +221,18 @@ public sealed class HistoryStore : IDisposable
             return 0;
         });
 
-        PurgeWal();
-        Vacuum();
+        Scrub(PurgeWal);
+        Scrub(Vacuum);
         DeleteQuarantine();
         return LoadAll();
     }
 
-    /// <summary>Switches between persistent and memory-only history (pins stay persistent in both).</summary>
-    public IReadOnlyList<HistoryEntry> SetMemoryOnly(bool memoryOnly)
+    /// <summary>
+    /// Switches between persistent and memory-only history (pins stay persistent in both). When
+    /// switching back to persistent, <paramref name="discardMemoryEntries"/> decides whether the
+    /// entries collected in memory are written to disk or dropped.
+    /// </summary>
+    public IReadOnlyList<HistoryEntry> SetMemoryOnly(bool memoryOnly, bool discardMemoryEntries = false)
     {
         if (Mode == StoreMode.MemoryFallback)
         {
@@ -242,7 +254,11 @@ public sealed class HistoryStore : IDisposable
             }
             else
             {
-                Execute($"INSERT INTO main.entries ({EntryColumns}) SELECT {EntryColumns} FROM mem.entries");
+                if (!discardMemoryEntries)
+                {
+                    Execute($"INSERT INTO main.entries ({EntryColumns}) SELECT {EntryColumns} FROM mem.entries");
+                }
+
                 Execute("DELETE FROM mem.entries");
             }
 
@@ -252,18 +268,29 @@ public sealed class HistoryStore : IDisposable
         Mode = target;
         if (memoryOnly)
         {
-            PurgeWal();
-            Vacuum();
+            Scrub(PurgeWal);
+            Scrub(Vacuum);
             DeleteQuarantine();
         }
 
         return LoadAll();
     }
 
+    /// <summary>Number of unpinned entries currently held only in memory.</summary>
+    public int CountMemoryOnlyEntries() =>
+        Convert.ToInt32(Scalar("SELECT COUNT(*) FROM mem.entries WHERE pinned_at IS NULL"), CultureInfo.InvariantCulture);
+
     public IReadOnlyList<long> SetLimits(HistoryLimits limits)
     {
         _limits = limits;
-        return InTransaction(ApplyRetention);
+        var removed = InTransaction(ApplyRetention);
+        if (removed.Count > 0)
+        {
+            // The user confirmed these deletions: scrub them from the WAL like any other delete.
+            Scrub(PurgeWal);
+        }
+
+        return removed;
     }
 
     /// <summary>How many unpinned entries a new limit would delete (for the confirmation dialog).</summary>
@@ -348,6 +375,9 @@ public sealed class HistoryStore : IDisposable
             DataSource = _paths.HistoryDatabase,
             Mode = SqliteOpenMode.ReadWriteCreate,
             Pooling = false,
+
+            // A second session holding the exclusive lock should be detected quickly, not after 30 s.
+            DefaultTimeout = 3,
         }.ToString());
         _db.Open();
 
@@ -384,6 +414,11 @@ public sealed class HistoryStore : IDisposable
         }
 
         _nextId = Convert.ToInt64(Scalar($"SELECT COALESCE(MAX(id), 0) + 1 FROM {AllEntries}"), CultureInfo.InvariantCulture);
+        _maxLastUsed = Convert.ToInt64(Scalar($"SELECT COALESCE(MAX(last_used_at), 0) FROM {AllEntries}"), CultureInfo.InvariantCulture);
+
+        // Read every row once here, inside the recovery path: a damaged data page must lead to
+        // quarantine and a fresh database, not to a store that fails on first use.
+        _ = LoadAll();
         File.WriteAllText(_paths.SessionMarker, string.Empty);
     }
 
@@ -579,7 +614,10 @@ public sealed class HistoryStore : IDisposable
         return doomed;
     }
 
-    /// <summary>Oldest unpinned entries beyond the count limit or the total size budget.</summary>
+    /// <summary>
+    /// Unpinned entries beyond the count limit or the total size budget. Strictly oldest first: once
+    /// one entry does not fit, it and everything older goes.
+    /// </summary>
     private List<long> SelectDoomed(HistoryLimits limits)
     {
         var doomed = new List<long>();
@@ -587,7 +625,7 @@ public sealed class HistoryStore : IDisposable
         foreach (var (id, chars) in UnpinnedByRecency())
         {
             // The newest entry always survives, even if it alone exceeds the size budget.
-            if (kept == 0 || (kept < limits.MaxItems && total + chars <= limits.MaxTotalChars))
+            if (doomed.Count == 0 && (kept == 0 || (kept < limits.MaxItems && total + chars <= limits.MaxTotalChars)))
             {
                 kept++;
                 total += chars;
@@ -599,6 +637,29 @@ public sealed class HistoryStore : IDisposable
         }
 
         return doomed;
+    }
+
+    /// <summary>Timestamps never go backwards (clock changes), so ordering and retention stay correct.</summary>
+    private long Monotonic(long nowMs)
+    {
+        _maxLastUsed = Math.Max(nowMs, _maxLastUsed + 1);
+        return _maxLastUsed;
+    }
+
+    /// <summary>
+    /// Scrubbing (checkpoint, vacuum) runs after the change was committed. If it fails the change
+    /// still stands and must still be published, so failures are logged, not thrown.
+    /// </summary>
+    private void Scrub(Action scrub)
+    {
+        try
+        {
+            scrub();
+        }
+        catch (SqliteException ex)
+        {
+            _log.Warning(Category, "Scrubbing deleted data from the database files failed", ex);
+        }
     }
 
     private void DeleteRows(IReadOnlyList<long> ids)

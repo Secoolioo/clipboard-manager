@@ -37,6 +37,7 @@ public sealed class PopupViewModel : ObservableObject
     private bool _hotkeyMissing;
     private DeletedEntry? _pendingUndo;
     private string _queryAtDelete = string.Empty;
+    private string _resultsText = string.Empty;
 
     public string Query
     {
@@ -142,6 +143,13 @@ public sealed class PopupViewModel : ObservableObject
     }
 
     public bool CanUndo => _pendingUndo is not null && _query == _queryAtDelete;
+
+    /// <summary>"5 matches" while searching (announced politely to screen readers), otherwise empty.</summary>
+    public string ResultsText
+    {
+        get => _resultsText;
+        private set => Set(ref _resultsText, value);
+    }
 
     public void Load(HistorySnapshot snapshot, long? currentEntryId, SkipReason skip, bool isLoaded, bool pinnedExpanded)
     {
@@ -314,7 +322,15 @@ public sealed class PopupViewModel : ObservableObject
                 : new NoticeRow(Strings.EmptyHint, "", isWarning: false));
         }
 
+        var entryRows = rows.OfType<EntryRow>().ToList();
+        for (var i = 0; i < entryRows.Count; i++)
+        {
+            entryRows[i].Position = i + 1;
+            entryRows[i].SetSize = entryRows.Count;
+        }
+
         Rows = rows;
+        ResultsText = terms.Length > 0 ? Strings.Matches(filtered.Count) : string.Empty;
         OnPropertyChanged(nameof(HasEntries));
         if (selectDefault)
         {

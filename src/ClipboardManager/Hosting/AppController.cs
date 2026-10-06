@@ -45,6 +45,8 @@ internal sealed class AppController : ISettingsHost, IDisposable
     private PopupWindow _popupWindow = null!;
     private PopupController _popup = null!;
     private SettingsWindow? _settingsWindow;
+    private WelcomeWindow? _welcomeWindow;
+    private bool _discardMemoryEntriesOnPersist;
     private bool _stopped;
 
     public AppController(App app, StartupOptions options)
@@ -73,7 +75,22 @@ internal sealed class AppController : ISettingsHost, IDisposable
         _index = new HistoryIndex();
         _tracker = new CurrentClipTracker();
         _worker = new DbWorker(_log);
-        _worker.Changed += batch => _dispatcher.BeginInvoke(DispatcherPriority.Normal, () => _index.Apply(batch));
+        _worker.Changed += batch => _dispatcher.BeginInvoke(DispatcherPriority.Normal, () =>
+        {
+            // Mark a fresh capture as current before the index raises Changed, so an open popup
+            // that refreshes on that event already sees the right "current" entry.
+            if (batch.CapturedSequence is { } sequence && batch.Upserted.Count > 0)
+            {
+                _tracker.EntryIsCurrent(sequence, batch.Upserted[0].Id);
+            }
+
+            foreach (var removed in batch.Removed)
+            {
+                _tracker.EntryRemoved(removed);
+            }
+
+            _index.Apply(batch);
+        });
 
         // Hotkey, tray and listener first, so the app is reachable as early as possible after login.
         _host = new HostWindow();
@@ -190,8 +207,16 @@ internal sealed class AppController : ISettingsHost, IDisposable
         string? locationHint = _autostart.IsVolatileLocation ? Strings.AutostartVolatile : _autostart.IsInDownloads ? Strings.AutostartDownloads : null;
 
         var welcome = new WelcomeWindow(HotkeyFormatter.Format(_hotkey.Active), hotkeyWarning, _autostart.State == AutostartState.On, locationHint, StartMenuShortcut.Exists);
+        _welcomeWindow = welcome;
         welcome.Closed += (_, _) =>
         {
+            _welcomeWindow = null;
+            if (_stopped)
+            {
+                // Closed by "Remove everything" or exit: never write autostart or shortcuts back.
+                return;
+            }
+
             if (welcome.AutostartChosen != (_autostart.State == AutostartState.On) && !_autostart.IsVolatileLocation)
             {
                 _autostart.SetEnabled(welcome.AutostartChosen);
@@ -256,24 +281,21 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
     // ---- status ----------------------------------------------------------------------------
 
-    private string StatusText() => _monitoring.Mode switch
+    private string StatusText()
     {
-        MonitoringMode.PausedUntil => Strings.StatusPausedUntil(_monitoring.PausedUntil!.Value),
-        MonitoringMode.PausedIndefinitely => Strings.StatusPaused,
-        _ when _monitoring.IgnoreNext => Strings.StatusIgnoreNext,
-        _ => Strings.StatusActive,
-    };
-
-    private string TrayTooltip()
-    {
-        var status = StatusText();
-        if (_hotkey?.Status == HotkeyStatus.Taken)
+        var status = _monitoring.Mode switch
         {
-            status += " · " + Strings.HotkeyMissing;
-        }
+            MonitoringMode.PausedUntil => Strings.StatusPausedUntil(_monitoring.PausedUntil!.Value),
+            MonitoringMode.PausedIndefinitely => Strings.StatusPaused,
+            _ when _monitoring.IgnoreNext => Strings.StatusIgnoreNext,
+            _ => Strings.StatusActive,
+        };
 
-        return Strings.TrayTooltip(status);
+        // A missing hotkey is shown as text everywhere, not only as a colour or glyph.
+        return _hotkey?.Status is HotkeyStatus.Taken or HotkeyStatus.Unregistered ? status + " · " + Strings.HotkeyMissingShort : status;
     }
+
+    private string TrayTooltip() => Strings.TrayTooltip(StatusText());
 
     private void UpdateStatus()
     {
@@ -398,7 +420,9 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
         if (previous.MemoryOnly != next.MemoryOnly)
         {
-            _ = _worker.SetMemoryOnlyAsync(next.MemoryOnly);
+            var discard = !next.MemoryOnly && _discardMemoryEntriesOnPersist;
+            _discardMemoryEntriesOnPersist = false;
+            _ = _worker.SetMemoryOnlyAsync(next.MemoryOnly, discard);
         }
 
         if (previous.SkipDetectedSecrets != next.SkipDetectedSecrets || !previous.ExcludedApps.SequenceEqual(next.ExcludedApps, StringComparer.OrdinalIgnoreCase))
@@ -482,7 +506,19 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
     public void SuspendHotkey() => _hotkey.Suspend();
 
-    public void ResumeHotkey() => _hotkey.Resume();
+    public void ResumeHotkey()
+    {
+        _hotkey.Resume();
+        UpdateStatus();
+    }
+
+    public Task<int> CountMemoryOnlyEntriesAsync() => _worker.CountMemoryOnlyEntriesAsync();
+
+    public void SetMemoryOnly(bool memoryOnly, bool discardMemoryEntries)
+    {
+        _discardMemoryEntriesOnPersist = discardMemoryEntries;
+        _settings.Update(s => s with { MemoryOnly = memoryOnly });
+    }
 
     public bool IsHotkeyAvailable(HotkeyGesture gesture) => _hotkey.IsAvailable(gesture);
 
@@ -569,9 +605,10 @@ internal sealed class AppController : ISettingsHost, IDisposable
             return;
         }
 
+        StopServices(TimeSpan.FromSeconds(3));
+        _welcomeWindow?.Close();
         _autostart.RemoveAll();
         _startMenu.Remove();
-        StopServices(TimeSpan.FromSeconds(3));
         try
         {
             Directory.Delete(_options.Paths.DataDirectory, recursive: true);
@@ -591,6 +628,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
         Strings.Apply(_settings.Current.Language);
         _popup.Close(restoreFocus: false);
         _popup.AllowShutdown();
+        _popup.Detach();
         _popupWindow.Close();
         CreatePopup();
         SchedulePrewarm();
@@ -639,7 +677,8 @@ internal sealed class AppController : ISettingsHost, IDisposable
             _tray?.Dispose();
             _worker?.Shutdown(timeout);
             _host?.Dispose();
-            _gate?.Dispose();
+
+            // The gate is not disposed: a reader thread stuck in a delayed-render read may still release it.
         }
         catch (Exception ex)
         {

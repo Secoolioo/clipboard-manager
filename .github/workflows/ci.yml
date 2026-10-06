@@ -34,6 +34,9 @@ jobs:
 
       - name: Check maintainer commit identities
         shell: pwsh
+        env:
+          # Private regex list (one per line) of identities that must never appear; empty on forks.
+          FORBIDDEN_IDENTITIES: ${{ secrets.FORBIDDEN_IDENTITIES }}
         run: ./build/check-identity.ps1
 
       - name: Restore (locked)

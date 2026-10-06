@@ -33,6 +33,48 @@ public static class ContentHash
 
 public static class TextMetrics
 {
+    /// <summary>
+    /// SQLite stores text as UTF-8, which cannot represent unpaired surrogates (invalid UTF-16 that
+    /// some apps put on the clipboard). Normalizing them to U+FFFD before hashing keeps the stored
+    /// text, its hash and later re-copies consistent. Valid text is returned unchanged (same instance).
+    /// </summary>
+    public static string NormalizeSurrogates(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var span = text.AsSpan();
+        for (var i = 0; i < span.Length; i++)
+        {
+            if (char.IsHighSurrogate(span[i]) && i + 1 < span.Length && char.IsLowSurrogate(span[i + 1]))
+            {
+                i++;
+                continue;
+            }
+
+            if (char.IsSurrogate(span[i]))
+            {
+                return string.Create(text.Length, text, static (buffer, source) =>
+                {
+                    for (var j = 0; j < source.Length; j++)
+                    {
+                        var c = source[j];
+                        if (char.IsHighSurrogate(c) && j + 1 < source.Length && char.IsLowSurrogate(source[j + 1]))
+                        {
+                            buffer[j] = c;
+                            buffer[j + 1] = source[j + 1];
+                            j++;
+                        }
+                        else
+                        {
+                            buffer[j] = char.IsSurrogate(c) ? '�' : c;
+                        }
+                    }
+                });
+            }
+        }
+
+        return text;
+    }
+
     public static int CountLines(string text)
     {
         if (text.Length == 0)

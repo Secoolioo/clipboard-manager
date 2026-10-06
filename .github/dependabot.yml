@@ -16,7 +16,5 @@ updates:
       actions:
         patterns: ["*"]
 
-  - package-ecosystem: dotnet-sdk
-    directory: "/"
-    schedule:
-      interval: weekly
+# SDK updates are done by hand: the SDK version also changes an implicit package in the lock
+# files, so global.json and `dotnet restore --force-evaluate` must be updated together.

@@ -37,6 +37,15 @@ Useful commands:
 | Use a separate data folder | set `CLIPBOARDMANAGER_DATA_DIR` |
 | Verbose log | set `CLIPBOARDMANAGER_LOG=debug` |
 
+## Updating the .NET SDK
+
+Bump `global.json` and regenerate the lock files in the same commit (the SDK version also
+changes an implicit package that the lock files record):
+
+```bash
+dotnet restore ClipboardManager.sln --force-evaluate
+```
+
 ## Pull requests
 
 - One topic per PR; include tests for behavior changes (see the test categories in

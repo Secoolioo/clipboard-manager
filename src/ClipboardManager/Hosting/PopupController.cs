@@ -38,6 +38,9 @@ internal sealed class PopupController : IPopupActions
     private long _snapshotVersion;
     private long _openedAt;
     private long _hiddenAt;
+    private int _session;
+    private bool _loadedAtOpen;
+    private bool _refreshed;
     private bool _warm;
     private bool _busy;
 
@@ -158,8 +161,10 @@ internal sealed class PopupController : IPopupActions
         var foreground = User32.GetForegroundWindow();
         _previousForeground = source == PopupSource.Hotkey && IsRestorable(foreground) ? foreground : IntPtr.Zero;
 
+        _session++;
+        _refreshed = false;
         StatusRequested?.Invoke(this, EventArgs.Empty);
-        LoadSnapshot();
+        LoadSnapshot(initial: true);
         Place(foreground);
         _window.Show();
         _window.Activate();
@@ -173,9 +178,17 @@ internal sealed class PopupController : IPopupActions
 
         if (User32.GetForegroundWindow() != _window.Handle)
         {
-            // Activation was refused (foreground lock, a menu of another app): do not leave an inactive popup behind.
+            // Windows refused the foreground (foreground lock, another app's menu). The popup stays
+            // visible and becomes active on the first click; the hotkey closes it again.
             _log.Info(Category, "Popup could not take the foreground");
         }
+    }
+
+    /// <summary>Unsubscribes from long-lived objects before the window is replaced (language change).</summary>
+    public void Detach()
+    {
+        _index.Changed -= OnIndexChanged;
+        _window.Actions = null;
     }
 
     public void Close(bool restoreFocus)
@@ -192,6 +205,7 @@ internal sealed class PopupController : IPopupActions
         }
 
         _previousForeground = IntPtr.Zero;
+        _session++;
         PersistViewState();
         _viewModel.Reset();
         _window.Hide();
@@ -214,25 +228,39 @@ internal sealed class PopupController : IPopupActions
         }
 
         _busy = true;
+        var session = _session;
         try
         {
             var text = row.Entry.IsPartiallySearchable ? await _worker.GetTextAsync(row.Entry.Id).ConfigureAwait(true) : row.Entry.SearchText;
-            if (text is null)
+            if (text is null || session != _session)
             {
-                _viewModel.InlineMessage = Strings.CopyFailed;
+                if (session == _session)
+                {
+                    _viewModel.InlineMessage = Strings.CopyFailed;
+                }
+
                 return;
             }
 
             var sequence = await _writer.WriteAsync(text).ConfigureAwait(true);
             if (sequence is null)
             {
-                _viewModel.InlineMessage = Strings.CopyFailed;
+                if (session == _session)
+                {
+                    _viewModel.InlineMessage = Strings.CopyFailed;
+                }
+
                 return;
             }
 
             _tracker.EntryIsCurrent(sequence.Value, row.Entry.Id);
-            Close(restoreFocus: true);
             _ = _worker.PromoteAsync(row.Entry.Id, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+
+            // Only close the session this copy belongs to (the user may have closed and reopened meanwhile).
+            if (session == _session)
+            {
+                Close(restoreFocus: true);
+            }
         }
         finally
         {
@@ -292,20 +320,38 @@ internal sealed class PopupController : IPopupActions
 
     public void AllowShutdown() => _window.AllowCloseForShutdown();
 
-    private void LoadSnapshot()
+    private void LoadSnapshot(bool initial = false)
     {
         var sequence = User32.GetClipboardSequenceNumber();
-        _viewModel.IsCompact = _settings.Current.PopupCompact;
-        _viewModel.Load(_index.Snapshot(), _tracker.CurrentEntry(sequence), _tracker.CurrentSkip(sequence), _index.IsLoaded, _settings.Current.PinnedExpanded);
+        if (initial)
+        {
+            _viewModel.IsCompact = _settings.Current.PopupCompact;
+            _openedAt = Environment.TickCount64;
+            _loadedAtOpen = _index.IsLoaded;
+        }
+
+        var expanded = initial ? _settings.Current.PinnedExpanded : _viewModel.PinnedExpanded;
+        _viewModel.Load(_index.Snapshot(), _tracker.CurrentEntry(sequence), _tracker.CurrentSkip(sequence), _index.IsLoaded, expanded);
         _snapshotVersion = _index.Version;
-        _openedAt = Environment.TickCount64;
     }
 
-    /// <summary>A capture that was still in flight when the popup opened may refresh it once, before the user acts.</summary>
+    /// <summary>
+    /// The popup works on a snapshot. It is refreshed at most once, and only before the user did
+    /// anything: when a capture that was in flight at opening lands (within 400 ms), or when the
+    /// history finishes loading after the popup opened during startup.
+    /// </summary>
     private void OnIndexChanged(object? sender, EventArgs e)
     {
-        if (IsOpen && Environment.TickCount64 - _openedAt < 400 && _viewModel.Query.Length == 0 && _index.Version != _snapshotVersion)
+        if (!IsOpen || _refreshed || _window.HasUserInput || _index.Version == _snapshotVersion)
         {
+            return;
+        }
+
+        var captureLanded = Environment.TickCount64 - _openedAt < 400;
+        var loadFinished = !_loadedAtOpen && _index.IsLoaded;
+        if (captureLanded || loadFinished)
+        {
+            _refreshed = true;
             LoadSnapshot();
         }
     }
