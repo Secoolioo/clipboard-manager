@@ -269,7 +269,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
         var status = StatusText();
         if (_hotkey?.Status == HotkeyStatus.Taken)
         {
-            status += " Â· " + Strings.HotkeyMissing;
+            status += " · " + Strings.HotkeyMissing;
         }
 
         return Strings.TrayTooltip(status);

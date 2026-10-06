@@ -85,6 +85,21 @@ internal static class SelfTest
             window.ContentRendered += (_, _) => rendered.TrySetResult();
             window.Show();
             var ok = await Task.WhenAny(rendered.Task, Task.Delay(10_000)).ConfigureAwait(true) == rendered.Task;
+
+            // Warm open latency: Show → layout → render pass completed (the window stays cloaked).
+            var samples = new List<double>();
+            for (var i = 0; i < 20; i++)
+            {
+                window.Hide();
+                var start = System.Diagnostics.Stopwatch.GetTimestamp();
+                window.Show();
+                window.UpdateLayout();
+                await window.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Render);
+                samples.Add(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+            }
+
+            samples.Sort();
+            report.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"INFO popup warm open: median {samples[samples.Count / 2]:F1} ms, max {samples[^1]:F1} ms");
             window.AllowCloseForShutdown();
             window.Close();
             return ok;
@@ -100,6 +115,25 @@ internal static class SelfTest
         using (var process = System.Diagnostics.Process.GetCurrentProcess())
         {
             report.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"INFO private bytes {process.PrivateMemorySize64 / 1048576.0:F1} MB, working set {process.WorkingSet64 / 1048576.0:F1} MB, process age {(DateTime.Now - process.StartTime).TotalMilliseconds:F0} ms");
+        }
+
+        if (options.IdleSeconds > 0)
+        {
+            // Idle probe: a rendered, hidden popup plus the host window, nothing else (no tray, no hotkey).
+            var idleWindow = new PopupWindow(new PopupViewModel()) { ShowActivated = false, IsPrewarming = true };
+            Dwm.Set(new WindowInteropHelper(idleWindow).EnsureHandle(), Dwm.DWMWA_CLOAK, 1);
+            idleWindow.Show();
+            idleWindow.Hide();
+            using var process = System.Diagnostics.Process.GetCurrentProcess();
+            await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(true);
+            process.Refresh();
+            var cpuBefore = process.TotalProcessorTime;
+            await Task.Delay(TimeSpan.FromSeconds(options.IdleSeconds)).ConfigureAwait(true);
+            process.Refresh();
+            var cpu = process.TotalProcessorTime - cpuBefore;
+            report.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"INFO idle {options.IdleSeconds} s: CPU time {cpu.TotalMilliseconds:F1} ms, private bytes {process.PrivateMemorySize64 / 1048576.0:F1} MB");
+            idleWindow.AllowCloseForShutdown();
+            idleWindow.Close();
         }
 
         var output = Environment.GetEnvironmentVariable(OutputVariable);

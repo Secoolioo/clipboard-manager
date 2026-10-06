@@ -1,0 +1,5 @@
+#!/bin/sh
+# Enable with: git config core.hooksPath build/hooks
+# Blocks a push if the maintainer's commits use a non-noreply address or match a private
+# pattern listed in .git/forbidden-identities (untracked, never pushed).
+exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(git rev-parse --show-toplevel)/build/check-identity.ps1"

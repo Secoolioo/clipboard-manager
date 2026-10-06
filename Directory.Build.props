@@ -23,7 +23,9 @@
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
     <DebugType>embedded</DebugType>
 
-    <!-- Locked, reproducible restores. -->
+    <!-- Locked, reproducible restores. Every project declares both release RIDs so the lock files
+         are identical whether restored for build, test or a RID-specific publish. -->
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestoreLockedMode Condition="'$(GITHUB_ACTIONS)' == 'true'">true</RestoreLockedMode>

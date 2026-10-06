@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" width="1200" height="440" role="img" aria-label="Clipboard Manager: press Ctrl+Shift+V, type, press Enter.">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F4FBF7"/>
+      <stop offset="1" stop-color="#E3F4EB"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0.42" r="0.55">
+      <stop offset="0" stop-color="#16d67a" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#16d67a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16D67A"/>
+      <stop offset="1" stop-color="#0EA5A4"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#0B8F57" stroke-opacity="0.07" stroke-width="1"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0B3D2A" flood-opacity="0.35"/>
+    </filter>
+    <clipPath id="typing"><rect class="typing" x="0" y="-30" width="0" height="40"/></clipPath>
+    <clipPath id="card"><rect x="0" y="0" width="500" height="330" rx="16"/></clipPath>
+    <style>
+      .t { font-family: 'Segoe UI', 'Segoe UI Variable', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; }
+      .m { font-family: 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace; }
+      @keyframes key { 0%, 4% { transform: translateY(0); } 6%, 14% { transform: translateY(4px); } 16%, 100% { transform: translateY(0); } }
+      @keyframes keyglow { 0%, 4% { fill: #FFFFFF; } 6%, 14% { fill: #078A5A; } 16%, 100% { fill: #FFFFFF; } }
+      @keyframes keytext { 0%, 4% { fill: #0B1F17; } 6%, 14% { fill: #FFFFFF; } 16%, 100% { fill: #0B1F17; } }
+      @keyframes popup { 0%, 10% { opacity: 0; transform: translateY(14px) scale(.985); } 13%, 92% { opacity: 1; transform: translateY(0) scale(1); } 97%, 100% { opacity: 0; transform: translateY(8px) scale(.99); } }
+      @keyframes type { 0%, 22% { width: 0; } 24% { width: 13px; } 26% { width: 27px; } 28% { width: 41px; } 30% { width: 55px; } 32% { width: 69px; } 34%, 100% { width: 84px; } }
+      @keyframes caret { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+      @keyframes caretmove { 0%, 22% { transform: translateX(0); } 24% { transform: translateX(13px); } 26% { transform: translateX(27px); } 28% { transform: translateX(41px); } 30% { transform: translateX(55px); } 32% { transform: translateX(69px); } 34%, 100% { transform: translateX(86px); } }
+      .caretpos { animation: caretmove 8s infinite steps(1); }
+      @keyframes placeholder { 0%, 21% { opacity: 1; } 22%, 100% { opacity: 0; } }
+      @keyframes all { 0%, 35% { opacity: 1; } 38%, 100% { opacity: 0; } }
+      @keyframes filtered { 0%, 35% { opacity: 0; } 38%, 100% { opacity: 1; } }
+      @keyframes select { 0%, 48% { transform: translateY(0); } 52%, 100% { transform: translateY(52px); } }
+      @keyframes copied { 0%, 62% { opacity: 0; transform: translateY(6px); } 65%, 88% { opacity: 1; transform: translateY(0); } 92%, 100% { opacity: 0; } }
+      .k1 { animation: key 8s infinite; animation-delay: .1s; transform-box: fill-box; }
+      .k2 { animation: key 8s infinite; animation-delay: .25s; transform-box: fill-box; }
+      .k3 { animation: key 8s infinite; animation-delay: .4s; transform-box: fill-box; }
+      .k1 rect { animation: keyglow 8s infinite; animation-delay: .1s; }
+      .k2 rect { animation: keyglow 8s infinite; animation-delay: .25s; }
+      .k3 rect { animation: keyglow 8s infinite; animation-delay: .4s; }
+      .k1 text { animation: keytext 8s infinite; animation-delay: .1s; }
+      .k2 text { animation: keytext 8s infinite; animation-delay: .25s; }
+      .k3 text { animation: keytext 8s infinite; animation-delay: .4s; }
+      .popup { animation: popup 8s infinite cubic-bezier(.2,.8,.2,1); transform-box: fill-box; transform-origin: center; }
+      .typing { animation: type 8s infinite steps(1); }
+      .caret { animation: caret 1s infinite steps(1); }
+      .placeholder { animation: placeholder 8s infinite; }
+      .all { animation: all 8s infinite; }
+      .filtered { animation: filtered 8s infinite; }
+      .select { animation: select 8s infinite cubic-bezier(.3,.7,.2,1); }
+      .copied { animation: copied 8s infinite; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="440" fill="url(#bg)"/>
+  <rect width="1200" height="440" fill="url(#grid)"/>
+  <rect width="1200" height="440" fill="url(#glow)"/>
+
+  <!-- logo -->
+  <g transform="translate(72 70) scale(0.36)">
+    <rect x="30" y="42" width="196" height="198" rx="40" fill="url(#brand)"/>
+    <rect x="86" y="16" width="84" height="46" rx="16" fill="#061A14"/>
+    <rect x="104" y="28" width="48" height="12" rx="6" fill="#16D67A"/>
+    <rect x="62" y="102" width="132" height="24" rx="12" fill="#FFFFFF"/>
+    <rect x="62" y="146" width="104" height="24" rx="12" fill="#FFFFFF" fill-opacity=".82"/>
+    <rect x="62" y="190" width="72" height="24" rx="12" fill="#FFFFFF" fill-opacity=".62"/>
+  </g>
+
+  <text class="t" x="72" y="214" font-size="52" font-weight="700" fill="#0B1F17">Clipboard Manager</text>
+  <text class="t" x="74" y="256" font-size="21" fill="#2E4A3E">Everything you copied – one shortcut away.</text>
+
+  <!-- keys -->
+  <g class="k1"><rect x="72" y="292" width="86" height="48" rx="10" fill="#FFFFFF" stroke="#C8DDD2" stroke-width="1.5"/><text class="t" x="115" y="323" font-size="18" font-weight="600" text-anchor="middle" fill="#0B1F17">Ctrl</text></g>
+  <text class="t" x="170" y="324" font-size="20" fill="#5F7A6D">+</text>
+  <g class="k2"><rect x="188" y="292" width="96" height="48" rx="10" fill="#FFFFFF" stroke="#C8DDD2" stroke-width="1.5"/><text class="t" x="236" y="323" font-size="18" font-weight="600" text-anchor="middle" fill="#0B1F17">Shift</text></g>
+  <text class="t" x="296" y="324" font-size="20" fill="#5F7A6D">+</text>
+  <g class="k3"><rect x="314" y="292" width="56" height="48" rx="10" fill="#FFFFFF" stroke="#C8DDD2" stroke-width="1.5"/><text class="t" x="342" y="323" font-size="18" font-weight="600" text-anchor="middle" fill="#0B1F17">V</text></g>
+
+  <text class="t" x="74" y="388" font-size="15" fill="#5F7A6D">local only  ·  no telemetry  ·  instant search  ·  open source</text>
+
+  <!-- popup -->
+  <g transform="translate(640 56)">
+    <g class="popup">
+      <rect x="0" y="0" width="500" height="330" rx="16" fill="#FFFFFF" stroke="#D5E6DD" stroke-width="1.5" filter="url(#shadow)"/>
+      <g clip-path="url(#card)">
+        <circle cx="34" cy="38" r="8" fill="none" stroke="#5F7A6D" stroke-width="2"/>
+        <path d="M40 44l6 6" stroke="#5F7A6D" stroke-width="2" stroke-linecap="round"/>
+        <text class="t placeholder" x="58" y="45" font-size="17" fill="#5F7A6D">Search history…</text>
+        <g transform="translate(58 45)">
+          <g clip-path="url(#typing)"><text class="t" x="0" y="0" font-size="17" fill="#0B1F17">docker</text></g>
+        </g>
+        <g class="caretpos"><rect class="caret" x="59" y="29" width="2" height="21" fill="#078A5A"/></g>
+        <circle cx="400" cy="39" r="4" fill="#078A5A"/>
+        <text class="t" x="410" y="44" font-size="13" fill="#5F7A6D">Recording</text>
+        <rect x="0" y="68" width="500" height="1" fill="#D5E6DD"/>
+
+        <!-- all entries -->
+        <g class="all">
+          <rect x="12" y="132" width="476" height="44" rx="8" fill="#C9F2DE"/>
+          <path d="M29 88h9l5 5v13h-14z" fill="none" stroke="#5F7A6D" stroke-width="1.6" stroke-linejoin="round"/>
+          <text class="t" x="58" y="104" font-size="16" fill="#2E4A3E">git status</text>
+          <rect x="344" y="89" width="70" height="20" rx="5" fill="#078A5A"/><text class="t" x="379" y="104" font-size="11" font-weight="700" text-anchor="middle" fill="#FFFFFF">CURRENT</text><text class="t" x="478" y="104" font-size="13" text-anchor="end" fill="#5F7A6D">just now</text>
+          <path d="M29 140h9l5 5v13h-14z" fill="none" stroke="#5F7A6D" stroke-width="1.6" stroke-linejoin="round"/>
+          <text class="t" x="58" y="156" font-size="16" fill="#2E4A3E">git commit -m &quot;Add search highlighting&quot;</text>
+          <text class="t" x="478" y="156" font-size="13" text-anchor="end" fill="#5F7A6D">2 min</text>
+          <path d="M30 198h6a5 5 0 0 1 0 10h-6M44 198h-6a5 5 0 0 0 0 10h6" fill="none" stroke="#5F7A6D" stroke-width="1.8"/>
+          <text class="t" x="58" y="208" font-size="16" fill="#2E4A3E">https://example.org/blog/keyboard-first</text>
+          <text class="t" x="478" y="208" font-size="13" text-anchor="end" fill="#5F7A6D">9 min</text>
+          <path d="M29 244h9l5 5v13h-14z" fill="none" stroke="#5F7A6D" stroke-width="1.6" stroke-linejoin="round"/>
+          <text class="t" x="58" y="260" font-size="16" fill="#2E4A3E">docker logs -f --tail 100 web</text>
+          <text class="t" x="478" y="260" font-size="13" text-anchor="end" fill="#5F7A6D">1 h</text>
+          <path d="M29 296h9l5 5v13h-14z" fill="none" stroke="#5F7A6D" stroke-width="1.6" stroke-linejoin="round"/>
+          <text class="t" x="58" y="312" font-size="16" fill="#2E4A3E">docker compose up -d</text>
+          <text class="t" x="478" y="312" font-size="13" text-anchor="end" fill="#5F7A6D">3 h</text>
+        </g>
+
+        <!-- filtered for "docker" -->
+        <g class="filtered">
+          <g class="select"><rect x="12" y="80" width="476" height="44" rx="8" fill="#C9F2DE"/></g>
+          <path d="M29 88h9l5 5v13h-14z" fill="none" stroke="#5F7A6D" stroke-width="1.6" stroke-linejoin="round"/>
+          <text class="t" x="58" y="104" font-size="16" fill="#2E4A3E"><tspan font-weight="700" text-decoration="underline">docker</tspan> logs -f --tail 100 web</text>
+          <text class="t" x="478" y="104" font-size="13" text-anchor="end" fill="#5F7A6D">1 h</text>
+          <path d="M29 140h9l5 5v13h-14z" fill="none" stroke="#5F7A6D" stroke-width="1.6" stroke-linejoin="round"/>
+          <text class="t" x="58" y="156" font-size="16" fill="#2E4A3E"><tspan font-weight="700" text-decoration="underline">docker</tspan> compose up -d</text>
+          <text class="t" x="478" y="156" font-size="13" text-anchor="end" fill="#5F7A6D">3 h</text>
+        </g>
+
+        <g class="copied">
+          <rect x="150" y="262" width="200" height="40" rx="20" fill="#078A5A"/>
+          <text class="t" x="250" y="288" font-size="15" font-weight="600" text-anchor="middle" fill="#FFFFFF">✓ Copied – press Ctrl+V</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

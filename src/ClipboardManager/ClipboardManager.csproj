@@ -9,9 +9,10 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon Condition="Exists('..\..\assets\brand\app.ico')">..\..\assets\brand\app.ico</ApplicationIcon>
-    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <InvariantGlobalization>false</InvariantGlobalization>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <!-- Always on (not only when publishing): keeps the lock file identical for build and publish. -->
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
     <Description>Fast, private clipboard history for Windows.</Description>
   </PropertyGroup>
 

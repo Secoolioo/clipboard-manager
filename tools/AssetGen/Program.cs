@@ -49,6 +49,16 @@ internal static class Program
                     Qr.Write(root, SolanaAddress);
                 }
 
+                if (command is "hero" or "all")
+                {
+                    Hero.Write(root);
+                }
+
+                if (command == "bench")
+                {
+                    Bench.Run();
+                }
+
                 if (command == "verify-qr")
                 {
                     var decoded = Qr.Decode(args[1]);
@@ -82,6 +92,48 @@ internal static class Program
         }
 
         return directory?.FullName ?? throw new InvalidOperationException("Repository root not found");
+    }
+}
+
+/// <summary>Search latency on typical and worst-case data (numbers for docs/performance.md).</summary>
+internal static class Bench
+{
+    public static void Run()
+    {
+        Measure("5,000 typical entries (~60 chars)", 5000, i => $"entry {i} git commit -m 'fix {i}' https://example.com/{i}");
+        Measure("5,000 worst-case entries (4,096 chars each)", 5000, i => new string((char)('a' + (i % 26)), 4000) + $" tail {i}");
+    }
+
+    private static void Measure(string label, int count, Func<int, string> make)
+    {
+        var entries = Enumerable.Range(0, count).Select(i =>
+        {
+            var text = make(i);
+            return new HistoryEntry(i, text, text.Length, 1, i, i, null);
+        }).ToList();
+        var snapshot = new HistorySnapshot([], entries);
+        string[] queries = ["d", "do", "doc", "dock", "docker", "example 4999", "zz not found"];
+        for (var warm = 0; warm < 3; warm++)
+        {
+            foreach (var q in queries)
+            {
+                ClipboardManager.Core.Search.HistorySearch.Filter(snapshot, q);
+            }
+        }
+
+        var samples = new List<double>();
+        for (var round = 0; round < 30; round++)
+        {
+            foreach (var q in queries)
+            {
+                var start = System.Diagnostics.Stopwatch.GetTimestamp();
+                ClipboardManager.Core.Search.HistorySearch.Filter(snapshot, q);
+                samples.Add(System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+            }
+        }
+
+        samples.Sort();
+        Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{label}: median {samples[samples.Count / 2]:F2} ms, p95 {samples[(int)(samples.Count * 0.95)]:F2} ms"));
     }
 }
 
@@ -155,8 +207,88 @@ internal static class Qr
             </svg>
             """, new UTF8Encoding(false));
         File.WriteAllText(Path.Combine(readme, "solana-qr.path.txt"), $"{size}\n{path}\n", new UTF8Encoding(false));
-        Console.WriteLine($"qr: {size}x{size} modules, decodes to the address");
+        File.WriteAllText(Path.Combine(readme, "donate-card.svg"), DonateCard(size, path, address), new UTF8Encoding(false));
+        File.WriteAllText(Path.Combine(readme, "donate-card-neon.svg"), NeonCard(size, path, address), new UTF8Encoding(false));
+        Console.WriteLine($"qr: {size}x{size} modules, decodes to the address; donate cards written");
     }
+
+    private static string Scale(int modules, double pixels) => (pixels / modules).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>README support card: dark, Solana gradient accent, scannable QR (dark modules on white).</summary>
+    private static string DonateCard(int size, string path, string address)
+    {
+        var first = address[..(address.Length / 2 + 6)];
+        var second = address[(address.Length / 2 + 6)..];
+        return $$"""
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" width="880" height="300" role="img" aria-label="Support Clipboard Manager with Solana. Address {{address}}">
+              <defs>
+                <linearGradient id="sol" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#9945FF"/>
+                  <stop offset="1" stop-color="#14F195"/>
+                </linearGradient>
+                <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#0B1220"/>
+                  <stop offset="1" stop-color="#0A1A14"/>
+                </linearGradient>
+                <style>
+                  .t { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif; }
+                  .m { font-family: 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace; }
+                  @keyframes glow { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+                  .pulse { animation: glow 3.2s ease-in-out infinite; }
+                </style>
+              </defs>
+              <rect x="1" y="1" width="878" height="298" rx="22" fill="url(#bg)" stroke="#1F2A37" stroke-width="2"/>
+              <rect x="1" y="1" width="8" height="298" rx="4" fill="url(#sol)"/>
+              <rect class="pulse" x="36" y="36" width="228" height="228" rx="20" fill="none" stroke="url(#sol)" stroke-width="3"/>
+              <rect x="42" y="42" width="216" height="216" rx="16" fill="#FFFFFF"/>
+              <g transform="translate(50 50) scale({{Scale(size, 200)}})" shape-rendering="crispEdges">
+                <path d="{{path}}" fill="#030806"/>
+              </g>
+              <text class="t" x="300" y="86" font-size="30" font-weight="700" fill="#F3F6F9">Support Clipboard Manager</text>
+              <text class="t" x="300" y="120" font-size="15" fill="#9DA7B3">Free and open source. If it saves you time, a tip in SOL keeps it going.</text>
+              <text class="t" x="300" y="164" font-size="13" font-weight="700" letter-spacing="2" fill="url(#sol)">SOLANA · SOL</text>
+              <text class="m" x="300" y="196" font-size="19" fill="#E6EDF3">{{first}}</text>
+              <text class="m" x="300" y="224" font-size="19" fill="#E6EDF3">{{second}}</text>
+              <text class="t" x="300" y="262" font-size="13" fill="#6E7781">Scan with any Solana wallet (Phantom, Solflare, …)</text>
+            </svg>
+            """;
+    }
+
+    /// <summary>Profile card in the neon terminal style of the GitHub profile.</summary>
+    private static string NeonCard(int size, string path, string address) => $$"""
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 290" width="900" height="290" role="img" aria-label="Fuel the lab: Solana address {{address}}">
+          <defs>
+            <style>
+              .m { font-family: 'Cascadia Mono', 'JetBrains Mono', Consolas, 'SFMono-Regular', Menlo, monospace; }
+              @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+              @keyframes scan { 0% { transform: translateY(-40px); } 100% { transform: translateY(300px); } }
+              @keyframes glow { 0%, 100% { stroke-opacity: .45; } 50% { stroke-opacity: 1; } }
+              .cursor { animation: blink 1.1s steps(1) infinite; }
+              .scan { animation: scan 4.5s linear infinite; }
+              .frame { animation: glow 2.8s ease-in-out infinite; }
+            </style>
+            <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#4dffa6" stop-opacity="0"/>
+              <stop offset=".5" stop-color="#4dffa6" stop-opacity=".12"/>
+              <stop offset="1" stop-color="#4dffa6" stop-opacity="0"/>
+            </linearGradient>
+            <clipPath id="card"><rect x="2" y="2" width="896" height="286" rx="14"/></clipPath>
+          </defs>
+          <rect x="2" y="2" width="896" height="286" rx="14" fill="#030806" stroke="#16d67a" stroke-opacity=".55" stroke-width="2"/>
+          <g clip-path="url(#card)"><rect class="scan" x="0" y="0" width="900" height="40" fill="url(#beam)"/></g>
+          <rect class="frame" x="34" y="34" width="222" height="222" rx="10" fill="none" stroke="#4dffa6" stroke-width="2"/>
+          <rect x="40" y="40" width="210" height="210" rx="6" fill="#FFFFFF"/>
+          <g transform="translate(47 47) scale({{Scale(size, 196)}})" shape-rendering="crispEdges">
+            <path d="{{path}}" fill="#030806"/>
+          </g>
+          <text class="m" x="290" y="72" font-size="15" fill="#16d67a">$ cat ./fuel.sol</text>
+          <text class="m" x="290" y="112" font-size="24" font-weight="700" fill="#4dffa6">fuel the lab</text>
+          <text class="m" x="290" y="144" font-size="14" fill="#7fb59a">tips in SOL keep the side projects (and the coffee) running</text>
+          <text class="m" x="290" y="190" font-size="13" fill="#22d3ee">network: solana · asset: SOL</text>
+          <text class="m" x="290" y="222" font-size="16" fill="#e6fff2">{{address}}</text>
+          <text class="m" x="290" y="256" font-size="14" fill="#16d67a">$ <tspan class="cursor">▌</tspan></text>
+        </svg>
+        """;
 
     public static string? Decode(string pngPath)
     {
@@ -297,7 +429,7 @@ internal static class Screenshots
             Entry("docker logs -f --tail 100 web", 75),
             Entry("192.0.2.44", 130),
             Entry("npm run build -- --watch", 300),
-            Entry("Ship v1.0 on Friday Ã°Å¸Å¡â‚¬", 1500),
+            Entry("Ship v1.0 on Friday 🚀", 1500),
         };
         snapshot = new HistorySnapshot(pinned, history);
         var model = new PopupViewModel();
@@ -481,50 +613,50 @@ internal static class GifWriter
             switch (gif[i])
             {
                 case 0x21:
-                {
-                    var label = gif[i + 1];
-                    var start = i;
-                    i += 2;
-                    i = SkipSubBlocks(gif, i);
-                    if (label == 0xF9)
                     {
-                        var block = gif[start..i];
-                        SetDelay(block, Delay(delays, frame));
-                        output.AddRange(block);
-                        lastWasControl = true;
-                    }
-                    else if (label != 0xFF)
-                    {
-                        output.AddRange(gif[start..i]);
-                    }
+                        var label = gif[i + 1];
+                        var start = i;
+                        i += 2;
+                        i = SkipSubBlocks(gif, i);
+                        if (label == 0xF9)
+                        {
+                            var block = gif[start..i];
+                            SetDelay(block, Delay(delays, frame));
+                            output.AddRange(block);
+                            lastWasControl = true;
+                        }
+                        else if (label != 0xFF)
+                        {
+                            output.AddRange(gif[start..i]);
+                        }
 
-                    break;
-                }
+                        break;
+                    }
 
                 case 0x2C:
-                {
-                    if (!lastWasControl)
                     {
-                        var control = new byte[] { 0x21, 0xF9, 0x04, 0x00, 0, 0, 0x00, 0x00 };
-                        SetDelay(control, Delay(delays, frame));
-                        output.AddRange(control);
-                    }
+                        if (!lastWasControl)
+                        {
+                            var control = new byte[] { 0x21, 0xF9, 0x04, 0x00, 0, 0, 0x00, 0x00 };
+                            SetDelay(control, Delay(delays, frame));
+                            output.AddRange(control);
+                        }
 
-                    var start = i;
-                    var localTable = gif[i + 9];
-                    i += 10;
-                    if ((localTable & 0x80) != 0)
-                    {
-                        i += 3 * (1 << ((localTable & 0x07) + 1));
-                    }
+                        var start = i;
+                        var localTable = gif[i + 9];
+                        i += 10;
+                        if ((localTable & 0x80) != 0)
+                        {
+                            i += 3 * (1 << ((localTable & 0x07) + 1));
+                        }
 
-                    i++; // LZW minimum code size
-                    i = SkipSubBlocks(gif, i);
-                    output.AddRange(gif[start..i]);
-                    frame++;
-                    lastWasControl = false;
-                    break;
-                }
+                        i++; // LZW minimum code size
+                        i = SkipSubBlocks(gif, i);
+                        output.AddRange(gif[start..i]);
+                        frame++;
+                        lastWasControl = false;
+                        break;
+                    }
 
                 case 0x3B:
                     output.Add(0x3B);

@@ -1,4 +1,4 @@
-﻿using ClipboardManager.Core.Settings;
+using ClipboardManager.Core.Settings;
 
 namespace ClipboardManager.Hosting;
 

@@ -1,0 +1,97 @@
+# Architecture
+
+Clipboard Manager is deliberately small: two production projects, no UI or dependency-injection
+framework, one runtime dependency (`Microsoft.Data.Sqlite.Core` with the SQLitePCLRaw provider for
+Windows' own `winsqlite3.dll`).
+
+```
+src/ClipboardManager.Core   net10.0          history store, capture policy, search, previews, settings, log
+src/ClipboardManager        net10.0-windows  WPF app: Win32 interop, windows, tray, composition root
+tests/ClipboardManager.Tests                  unit, store, privacy, Windows integration tests
+tools/AssetGen                                icon, README screenshots, QR code, search benchmark (never shipped)
+build/                                        release, self-test and hygiene scripts used by CI
+```
+
+## Runtime structure
+
+Three execution contexts, all idle without CPU load:
+
+```
+ UI thread (WPF dispatcher)                 Clipboard reader thread           DB worker (async, no thread while idle)
+ ───────────────────────────                ───────────────────────           ──────────────────────────────────────
+ HostWindow (hidden top-level)              waits on an event                 single-consumer channel
+   WM_CLIPBOARDUPDATE ── pause check ──►    sleeps 50 ms (coalesce)           SQLite (WAL, secure_delete,
+   WM_HOTKEY ─► PopupController             one OpenClipboard session:          exclusive lock, FULL sync)
+   tray callbacks ─► TrayMenu                 markers → owner → exclusion     ── versioned change batches ──►
+   TaskbarCreated, settings, session          → text (size-bounded)           HistoryIndex (UI thread)
+ PopupWindow (pre-built, reused)            policy (secrets, blank, size)
+ SettingsWindow (on demand)                 ──── capture ─────────────────►
+```
+
+- **HostWindow** is a hidden *top-level* window, not a message-only window: message-only windows do
+  not receive `TaskbarCreated`, `WM_SETTINGCHANGE` or session-end messages.
+- **ClipboardReader** never runs on the UI thread. Delayed rendering (Excel, RDP, VMs) can block
+  `GetClipboardData` for up to 30 seconds; only the reader waits. All checks happen inside a single
+  `OpenClipboard` session, so content cannot change between the privacy-marker check and the read.
+  "Latest wins": bursts of notifications collapse into one read. A flood breaker pauses reading when
+  a sync tool ping-pongs identical content.
+- **ClipboardWriter** writes only on explicit user action (never in reaction to a clipboard change),
+  so the app cannot start a sync loop. An in-process gate keeps our reader and writer from racing.
+- **DbWorker** is the only code that touches SQLite. Every change is published as a versioned
+  batch; the UI applies batches strictly in order, so a capture and a delete can never resurrect an
+  entry.
+- **PopupWindow** is created once, pre-warmed invisibly (DWM-cloaked) and then only shown and
+  hidden. While open it works on a snapshot, so the list never shifts under the cursor.
+
+## Data
+
+`%LOCALAPPDATA%\Secoolioo\ClipboardManager\`: `history.db` (+ `-wal`), `settings.json`,
+`logs\app.log` (1 MB + one backup), `session.active` (unclean-shutdown marker), and at most one
+`history.corrupt.db` after a recovery. `CLIPBOARDMANAGER_DATA_DIR` overrides the folder (tests,
+self-test).
+
+```sql
+CREATE TABLE entries (
+  id INTEGER PRIMARY KEY, hash BLOB NOT NULL UNIQUE,      -- SHA-256 of the UTF-16 text
+  char_count INTEGER NOT NULL, line_count INTEGER NOT NULL,
+  created_at INTEGER NOT NULL, last_used_at INTEGER NOT NULL, pinned_at INTEGER NULL,  -- Unix ms
+  search_head TEXT NULL,                                  -- first 4,096 chars, only for longer texts
+  text TEXT NOT NULL                                      -- last column: loading the index never reads it
+);
+```
+
+Memory-only mode attaches an in-memory database (`mem.entries`) for unpinned entries; pins stay in
+`main.entries`. Migrations use `PRAGMA user_version`; a database from a newer version is never
+touched (the app falls back to memory). The registry holds only autostart state:
+`HKCU\…\Run\Secoolioo.ClipboardManager` and `HKCU\Software\Secoolioo\ClipboardManager`
+(first-run and autostart decision).
+
+## Tests
+
+| Category | What | Where it runs |
+|---|---|---|
+| Unit | policy, secrets, search, previews, settings, hotkeys, popup selection rules, localization | everywhere |
+| Store | real SQLite: dedupe, retention + size budget, pins, undo, recovery, exclusive lock, ordering | everywhere |
+| Privacy | log never contains content, deleted/memory-only text never on disk, no networking or unexpected native calls | everywhere |
+| Windows | autostart against an isolated registry subtree, popup window behavior (cloaked) | everywhere |
+| Integration | the real clipboard: Unicode round trip, own writes, all privacy markers, locked clipboard, size limit | CI (`CM_INTEGRATION=1`) |
+
+The published EXE is additionally run with `--selftest` in CI on x64 and ARM64.
+
+## Decision log
+
+| # | Decision | Why | Alternatives considered |
+|---|---|---|---|
+| 1 | **.NET 10 LTS + WPF** with the Fluent theme | only option combining a true single EXE, mature UI Automation accessibility, live light/dark/system theming and zero UI dependencies; supported until Nov 2028 | WinUI 3 (extracts its whole payload, servicing cadence), Avalonia (native Skia DLLs, accessibility gaps), WinForms (no live dark mode, no size win), plain Win32 (accessibility effort) |
+| 2 | **Software rendering** (`RenderMode.SoftwareOnly`) | the hardware D3D path cost ~90 MB private memory for this small UI; software rendering keeps the app at ~35 MB and opens just as fast (measured) | hardware rendering |
+| 3 | **Uncompressed single-file EXE** | compressed bundles are inflated into private memory: +70 MB measured for an always-running app; a zip asset covers download size | `EnableCompressionInSingleFile` |
+| 4 | **Windows' `winsqlite3.dll`** via SQLitePCLRaw | nothing unsigned to extract (Smart App Control, AV heuristics), Microsoft-signed, loaded explicitly from System32 | bundled `e_sqlite3.dll` |
+| 5 | **SQLite** instead of a JSON file | atomic per-change commits, secure delete, migrations, no full rewrites | JSON + atomic rename |
+| 6 | **Autostart via HKCU Run**, `StartupApproved` only read (own value cleared on explicit re-enable) | visible and switchable in Task Manager; no admin; Task Scheduler entries are hidden from users | Startup folder shortcut, Task Scheduler |
+| 7 | **No `RegisterApplicationRestart`** | needs WER consent and 60 s uptime; Windows' "restart apps after sign-in" could start the app although autostart is off | restart registration |
+| 8 | **Native tray menu** | the rescue path when the hotkey is taken: correct DPI, keyboard and screen-reader behavior; light-only in dark mode is accepted | WPF ContextMenu |
+| 9 | **Fixed popup position** (upper third of the active monitor) | predictable for muscle memory; caret positions are unavailable in Chromium/Electron/Terminal | caret- or mouse-anchored |
+| 10 | **Always merge duplicates** (no setting) | predictable "moves to the top" behavior; identical rows would make selection ambiguous | optional setting |
+| 11 | **Memory-only history** instead of "clear on exit" | unpinned entries never reach the disk, no work during shutdown, covers crashes | clear at exit |
+| 12 | **GPL-3.0-or-later** | keeps derivatives open and credits intact; the bundled .NET runtime and WPF native libraries are treated as System Libraries of the runtime (GPLv3 §1) and their notices ship with every release | MIT, Apache-2.0 |
+| 13 | **Copy, not auto-paste**, in v1 | predictable; focus is returned to the previous app so Ctrl+V lands right; `Shift+Enter` is reserved for a later "copy and paste" | auto-paste via `SendInput` |

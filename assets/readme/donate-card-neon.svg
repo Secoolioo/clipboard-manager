@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 290" width="900" height="290" role="img" aria-label="Fuel the lab: Solana address 71ZN1AtBvFASLmbnh7WkfhzYYBC35h9tAm7Awvvk9FPt">
+  <defs>
+    <style>
+      .m { font-family: 'Cascadia Mono', 'JetBrains Mono', Consolas, 'SFMono-Regular', Menlo, monospace; }
+      @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+      @keyframes scan { 0% { transform: translateY(-40px); } 100% { transform: translateY(300px); } }
+      @keyframes glow { 0%, 100% { stroke-opacity: .45; } 50% { stroke-opacity: 1; } }
+      .cursor { animation: blink 1.1s steps(1) infinite; }
+      .scan { animation: scan 4.5s linear infinite; }
+      .frame { animation: glow 2.8s ease-in-out infinite; }
+    </style>
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4dffa6" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#4dffa6" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#4dffa6" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="card"><rect x="2" y="2" width="896" height="286" rx="14"/></clipPath>
+  </defs>
+  <rect x="2" y="2" width="896" height="286" rx="14" fill="#030806" stroke="#16d67a" stroke-opacity=".55" stroke-width="2"/>
+  <g clip-path="url(#card)"><rect class="scan" x="0" y="0" width="900" height="40" fill="url(#beam)"/></g>
+  <rect class="frame" x="34" y="34" width="222" height="222" rx="10" fill="none" stroke="#4dffa6" stroke-width="2"/>
+  <rect x="40" y="40" width="210" height="210" rx="6" fill="#FFFFFF"/>
+  <g transform="translate(47 47) scale(4.78)" shape-rendering="crispEdges">
+    <path d="M4 4h7v1h-7zM12 4h3v1h-3zM16 4h1v1h-1zM18 4h1v1h-1zM20 4h1v1h-1zM22 4h1v1h-1zM24 4h1v1h-1zM28 4h1v1h-1zM30 4h7v1h-7zM4 5h1v1h-1zM10 5h1v1h-1zM12 5h1v1h-1zM14 5h3v1h-3zM19 5h3v1h-3zM25 5h3v1h-3zM30 5h1v1h-1zM36 5h1v1h-1zM4 6h1v1h-1zM6 6h3v1h-3zM10 6h1v1h-1zM12 6h1v1h-1zM16 6h1v1h-1zM19 6h1v1h-1zM21 6h3v1h-3zM26 6h1v1h-1zM28 6h1v1h-1zM30 6h1v1h-1zM32 6h3v1h-3zM36 6h1v1h-1zM4 7h1v1h-1zM6 7h3v1h-3zM10 7h1v1h-1zM13 7h2v1h-2zM16 7h1v1h-1zM23 7h1v1h-1zM28 7h1v1h-1zM30 7h1v1h-1zM32 7h3v1h-3zM36 7h1v1h-1zM4 8h1v1h-1zM6 8h3v1h-3zM10 8h1v1h-1zM12 8h3v1h-3zM16 8h1v1h-1zM18 8h2v1h-2zM21 8h2v1h-2zM24 8h2v1h-2zM27 8h2v1h-2zM30 8h1v1h-1zM32 8h3v1h-3zM36 8h1v1h-1zM4 9h1v1h-1zM10 9h1v1h-1zM14 9h3v1h-3zM21 9h2v1h-2zM24 9h1v1h-1zM27 9h2v1h-2zM30 9h1v1h-1zM36 9h1v1h-1zM4 10h7v1h-7zM12 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM26 10h1v1h-1zM28 10h1v1h-1zM30 10h7v1h-7zM14 11h1v1h-1zM18 11h1v1h-1zM21 11h1v1h-1zM23 11h4v1h-4zM28 11h1v1h-1zM4 12h1v1h-1zM7 12h8v1h-8zM16 12h1v1h-1zM18 12h2v1h-2zM21 12h1v1h-1zM23 12h4v1h-4zM29 12h1v1h-1zM32 12h1v1h-1zM34 12h3v1h-3zM5 13h2v1h-2zM9 13h1v1h-1zM11 13h1v1h-1zM15 13h1v1h-1zM18 13h1v1h-1zM22 13h1v1h-1zM24 13h1v1h-1zM26 13h3v1h-3zM30 13h1v1h-1zM32 13h2v1h-2zM35 13h1v1h-1zM5 14h1v1h-1zM7 14h2v1h-2zM10 14h2v1h-2zM15 14h2v1h-2zM18 14h1v1h-1zM21 14h3v1h-3zM25 14h1v1h-1zM27 14h1v1h-1zM33 14h2v1h-2zM7 15h1v1h-1zM9 15h1v1h-1zM12 15h1v1h-1zM16 15h1v1h-1zM18 15h1v1h-1zM21 15h1v1h-1zM24 15h1v1h-1zM27 15h1v1h-1zM29 15h1v1h-1zM32 15h1v1h-1zM34 15h2v1h-2zM4 16h1v1h-1zM6 16h1v1h-1zM8 16h1v1h-1zM10 16h1v1h-1zM12 16h1v1h-1zM17 16h2v1h-2zM20 16h3v1h-3zM24 16h3v1h-3zM29 16h1v1h-1zM32 16h1v1h-1zM36 16h1v1h-1zM6 17h1v1h-1zM8 17h2v1h-2zM13 17h2v1h-2zM17 17h1v1h-1zM20 17h2v1h-2zM23 17h1v1h-1zM25 17h2v1h-2zM29 17h1v1h-1zM31 17h6v1h-6zM6 18h1v1h-1zM8 18h3v1h-3zM13 18h2v1h-2zM16 18h2v1h-2zM20 18h1v1h-1zM22 18h1v1h-1zM25 18h3v1h-3zM29 18h2v1h-2zM32 18h1v1h-1zM34 18h1v1h-1zM36 18h1v1h-1zM5 19h3v1h-3zM9 19h1v1h-1zM11 19h1v1h-1zM14 19h1v1h-1zM19 19h1v1h-1zM23 19h1v1h-1zM25 19h1v1h-1zM28 19h3v1h-3zM33 19h1v1h-1zM35 19h1v1h-1zM5 20h2v1h-2zM8 20h3v1h-3zM12 20h1v1h-1zM14 20h2v1h-2zM17 20h2v1h-2zM23 20h2v1h-2zM27 20h3v1h-3zM34 20h1v1h-1zM36 20h1v1h-1zM5 21h1v1h-1zM12 21h1v1h-1zM15 21h1v1h-1zM22 21h2v1h-2zM25 21h1v1h-1zM27 21h1v1h-1zM29 21h1v1h-1zM31 21h1v1h-1zM6 22h3v1h-3zM10 22h2v1h-2zM13 22h1v1h-1zM15 22h1v1h-1zM18 22h1v1h-1zM20 22h1v1h-1zM27 22h1v1h-1zM32 22h5v1h-5zM5 23h2v1h-2zM12 23h1v1h-1zM15 23h2v1h-2zM20 23h4v1h-4zM25 23h1v1h-1zM29 23h2v1h-2zM32 23h1v1h-1zM34 23h1v1h-1zM36 23h1v1h-1zM4 24h2v1h-2zM8 24h3v1h-3zM13 24h1v1h-1zM17 24h1v1h-1zM24 24h2v1h-2zM28 24h1v1h-1zM30 24h1v1h-1zM32 24h1v1h-1zM34 24h2v1h-2zM4 25h2v1h-2zM13 25h2v1h-2zM18 25h1v1h-1zM20 25h1v1h-1zM22 25h1v1h-1zM24 25h3v1h-3zM31 25h1v1h-1zM33 25h1v1h-1zM35 25h2v1h-2zM4 26h1v1h-1zM10 26h1v1h-1zM12 26h3v1h-3zM16 26h2v1h-2zM19 26h3v1h-3zM25 26h1v1h-1zM27 26h1v1h-1zM34 26h1v1h-1zM36 26h1v1h-1zM4 27h1v1h-1zM6 27h3v1h-3zM11 27h1v1h-1zM13 27h3v1h-3zM17 27h2v1h-2zM20 27h2v1h-2zM25 27h1v1h-1zM27 27h3v1h-3zM31 27h1v1h-1zM33 27h4v1h-4zM4 28h2v1h-2zM7 28h2v1h-2zM10 28h3v1h-3zM14 28h2v1h-2zM19 28h2v1h-2zM23 28h1v1h-1zM26 28h1v1h-1zM28 28h9v1h-9zM12 29h1v1h-1zM22 29h2v1h-2zM28 29h1v1h-1zM32 29h2v1h-2zM36 29h1v1h-1zM4 30h7v1h-7zM12 30h1v1h-1zM15 30h5v1h-5zM22 30h5v1h-5zM28 30h1v1h-1zM30 30h1v1h-1zM32 30h3v1h-3zM36 30h1v1h-1zM4 31h1v1h-1zM10 31h1v1h-1zM12 31h1v1h-1zM14 31h3v1h-3zM18 31h1v1h-1zM20 31h1v1h-1zM28 31h1v1h-1zM32 31h2v1h-2zM35 31h2v1h-2zM4 32h1v1h-1zM6 32h3v1h-3zM10 32h1v1h-1zM12 32h1v1h-1zM14 32h1v1h-1zM17 32h2v1h-2zM21 32h5v1h-5zM27 32h6v1h-6zM34 32h3v1h-3zM4 33h1v1h-1zM6 33h3v1h-3zM10 33h1v1h-1zM12 33h2v1h-2zM15 33h1v1h-1zM21 33h1v1h-1zM24 33h1v1h-1zM28 33h1v1h-1zM31 33h2v1h-2zM34 33h1v1h-1zM4 34h1v1h-1zM6 34h3v1h-3zM10 34h1v1h-1zM14 34h1v1h-1zM17 34h1v1h-1zM20 34h2v1h-2zM24 34h4v1h-4zM30 34h2v1h-2zM34 34h3v1h-3zM4 35h1v1h-1zM10 35h1v1h-1zM14 35h1v1h-1zM17 35h4v1h-4zM25 35h1v1h-1zM27 35h2v1h-2zM30 35h1v1h-1zM33 35h1v1h-1zM35 35h1v1h-1zM4 36h7v1h-7zM12 36h5v1h-5zM18 36h1v1h-1zM20 36h1v1h-1zM22 36h1v1h-1zM24 36h2v1h-2zM28 36h1v1h-1zM31 36h5v1h-5z" fill="#030806"/>
+  </g>
+  <text class="m" x="290" y="72" font-size="15" fill="#16d67a">$ cat ./fuel.sol</text>
+  <text class="m" x="290" y="112" font-size="24" font-weight="700" fill="#4dffa6">fuel the lab</text>
+  <text class="m" x="290" y="144" font-size="14" fill="#7fb59a">tips in SOL keep the side projects (and the coffee) running</text>
+  <text class="m" x="290" y="190" font-size="13" fill="#22d3ee">network: solana · asset: SOL</text>
+  <text class="m" x="290" y="222" font-size="16" fill="#e6fff2">71ZN1AtBvFASLmbnh7WkfhzYYBC35h9tAm7Awvvk9FPt</text>
+  <text class="m" x="290" y="256" font-size="14" fill="#16d67a">$ <tspan class="cursor">▌</tspan></text>
+</svg>

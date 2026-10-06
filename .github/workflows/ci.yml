@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
+jobs:
+  build:
+    name: Build, test, publish (x64)
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Check maintainer commit identities
+        shell: pwsh
+        run: ./build/check-identity.ps1
+
+      - name: Restore (locked)
+        run: dotnet restore ClipboardManager.sln --locked-mode
+
+      - name: Check formatting
+        run: dotnet format ClipboardManager.sln --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build ClipboardManager.sln -c Release --no-restore
+
+      - name: Test (including real-clipboard integration tests)
+        env:
+          CM_INTEGRATION: "1"
+        run: dotnet test --solution ClipboardManager.sln -c Release --no-build
+
+      - name: Publish single-file EXE
+        run: dotnet publish src/ClipboardManager -c Release -r win-x64 -o artifacts/win-x64
+
+      - name: Self-test the published EXE
+        shell: pwsh
+        run: ./build/selftest.ps1 -Exe artifacts/win-x64/ClipboardManager.exe -Clipboard
+
+      - name: Check the EXE for build-machine paths
+        shell: pwsh
+        run: ./build/check-paths.ps1 -Path artifacts/win-x64/ClipboardManager.exe
+
+      - name: Report size
+        shell: pwsh
+        run: |
+          $size = (Get-Item artifacts/win-x64/ClipboardManager.exe).Length / 1MB
+          "| Artifact | Size |`n|---|---|`n| ClipboardManager.exe (win-x64) | $('{0:N1}' -f $size) MB |" >> $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ClipboardManager-win-x64
+          path: artifacts/win-x64/ClipboardManager.exe
+          retention-days: 7
+
+  arm64:
+    name: Publish and self-test (ARM64)
+    runs-on: windows-11-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Publish single-file EXE
+        run: dotnet publish src/ClipboardManager -c Release -r win-arm64 -o artifacts/win-arm64
+
+      - name: Self-test the published EXE
+        shell: pwsh
+        run: ./build/selftest.ps1 -Exe artifacts/win-arm64/ClipboardManager.exe
