@@ -1,0 +1,28 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+TestResults/
+*.binlog
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.DotSettings.user
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Local data / scratch (never commit real clipboard data or logs)
+*.db
+*.db-wal
+*.db-shm
+*.log
+/tools/ReadmeShots/out/
+/local/
