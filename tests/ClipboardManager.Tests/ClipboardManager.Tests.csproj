@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ClipboardManager.Core\ClipboardManager.Core.csproj" />
+    <ProjectReference Include="..\..\src\ClipboardManager\ClipboardManager.csproj" />
   </ItemGroup>
 
 </Project>

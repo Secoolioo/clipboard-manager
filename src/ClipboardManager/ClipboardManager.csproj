@@ -49,6 +49,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="ClipboardManager.Tests" />
+    <InternalsVisibleTo Include="AssetGen" />
     <Using Include="System.IO" />
   </ItemGroup>
 

@@ -45,3 +45,5 @@ dotnet_diagnostic.CA1712.severity = none
 [tests/**.cs]
 dotnet_diagnostic.CA1707.severity = none
 dotnet_diagnostic.CA2007.severity = none
+# xUnit collection definitions are conventionally named *Collection.
+dotnet_diagnostic.CA1711.severity = none

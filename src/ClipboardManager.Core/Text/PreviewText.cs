@@ -44,7 +44,10 @@ public static class PreviewText
         }
         else
         {
-            AppendCollapsed(builder, firstLine.Trim(), maxLength);
+            // Multi-line: everything from the first non-blank line on, joined into one line, so
+            // "{" or "Best regards," alone do not hide what the entry is.
+            var start = span.IndexOf(firstLine);
+            AppendCollapsed(builder, span[Math.Max(0, start)..].Trim(), maxLength);
         }
 
         if (builder.Length >= maxLength)

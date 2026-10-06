@@ -135,6 +135,12 @@
           "xunit.v3.runner.common": "[4.0.1]"
         }
       },
+      "clipboardmanager": {
+        "type": "Project",
+        "dependencies": {
+          "ClipboardManager.Core": "[0.0.0-dev, )"
+        }
+      },
       "clipboardmanager.core": {
         "type": "Project",
         "dependencies": {

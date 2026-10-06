@@ -68,7 +68,8 @@ public sealed class SearchAndPreviewTests
     [InlineData("docker compose up -d", "docker compose up -d")]
     [InlineData("  padded  ", "··padded··")]
     [InlineData("cmd\n", "cmd ⏎")]
-    [InlineData("\n\n  first line\nsecond", "first line")]
+    [InlineData("\n\n  first line\nsecond", "first line second")]
+    [InlineData("{\n  \"name\": \"demo\"\n}", "{ \"name\": \"demo\" }")]
     [InlineData("tabs\t\tand   spaces", "tabs and spaces")]
     [InlineData("   ", "···")]
     public void Row_preview_makes_whitespace_visible(string text, string expected)

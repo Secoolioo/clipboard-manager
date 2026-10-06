@@ -80,7 +80,7 @@ public static partial class Strings
 
     public static string Lines(int count) => count == 1 ? T("1 Zeile", "1 line") : T($"{count:N0} Zeilen", $"{count:N0} lines");
 
-    public static string LinesShort(int count) => T($"{count} Z", $"{count} ln");
+    public static string LinesShort(int count) => T($"{count} Zeilen", $"{count} lines");
 
     public static string CopiedAt(string when) => T($"zuletzt verwendet {when}", $"last used {when}");
 

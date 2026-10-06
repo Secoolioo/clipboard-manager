@@ -95,6 +95,13 @@ internal static class SelfTest
             await Check("clipboard write and read round trip", () => ClipboardRoundTripAsync(host, options)).ConfigureAwait(true);
         }
 
+        // Footprint after the UI has rendered once (what a resident app costs), for the performance log.
+        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+        using (var process = System.Diagnostics.Process.GetCurrentProcess())
+        {
+            report.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"INFO private bytes {process.PrivateMemorySize64 / 1048576.0:F1} MB, working set {process.WorkingSet64 / 1048576.0:F1} MB, process age {(DateTime.Now - process.StartTime).TotalMilliseconds:F0} ms");
+        }
+
         var output = Environment.GetEnvironmentVariable(OutputVariable);
         var text = report.ToString();
         options.Log.Info("SelfTest", text.Replace(Environment.NewLine, " | ", StringComparison.Ordinal));
