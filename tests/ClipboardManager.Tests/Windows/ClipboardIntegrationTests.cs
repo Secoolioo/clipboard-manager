@@ -206,17 +206,32 @@ public sealed class ClipboardIntegrationTests
         Put(owner, "locked");
         var held = new ManualResetEventSlim();
         var release = new ManualResetEventSlim();
+        var opened = false;
         var blocker = new Thread(() =>
         {
-            User32.OpenClipboard(IntPtr.Zero);
+            // Clipboard listeners of the OS (history service, rdpclip) may still be reading the
+            // content just put there, so retry until this thread really holds the clipboard.
+            for (var i = 0; i < 200 && !opened; i++)
+            {
+                opened = User32.OpenClipboard(IntPtr.Zero);
+                if (!opened)
+                {
+                    Thread.Sleep(10);
+                }
+            }
+
             held.Set();
-            release.Wait(5000);
-            User32.CloseClipboard();
+            if (opened)
+            {
+                release.Wait(5000);
+                User32.CloseClipboard();
+            }
         });
         blocker.Start();
         held.Wait();
         try
         {
+            Assert.True(opened, "test could not take the clipboard");
             var snapshot = await ReadAsync(new ClipboardGate());
             Assert.Equal(SkipReason.ReadFailed, snapshot.ReaderSkip);
         }
