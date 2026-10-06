@@ -75,11 +75,15 @@ public sealed class HistoryStore : IDisposable
 
         return InTransaction(() =>
         {
-            using (var top = Command($"SELECT hash FROM {AllEntries} ORDER BY last_used_at DESC, id DESC LIMIT 1"))
+            using (var top = Command($"SELECT id, hash FROM {AllEntries} ORDER BY last_used_at DESC, id DESC LIMIT 1"))
+            using (var reader = top.ExecuteReader())
             {
-                if (top.ExecuteScalar() is byte[] topHash && topHash.AsSpan().SequenceEqual(hash))
+                if (reader.Read() && reader.GetFieldValue<byte[]>(1).AsSpan().SequenceEqual(hash))
                 {
-                    return new CaptureResult(CaptureOutcome.Unchanged, null, HistoryChangeBatch.NoIds);
+                    // Same text as the newest entry (sync tools, apps re-setting the clipboard): no write at all.
+                    var topId = reader.GetInt64(0);
+                    reader.Close();
+                    return new CaptureResult(CaptureOutcome.Unchanged, Find(topId), HistoryChangeBatch.NoIds);
                 }
             }
 
