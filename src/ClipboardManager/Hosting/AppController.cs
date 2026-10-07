@@ -53,6 +53,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
     private DispatcherTimer? _environmentPrewarm;
     private bool _discardMemoryEntriesOnPersist;
     private bool _installing;
+    private bool _popupDisabledNoticeShown;
     private bool _stopped;
 
     public AppController(App app, StartupOptions options)
@@ -121,13 +122,13 @@ internal sealed class AppController : ISettingsHost, IDisposable
                 // Normal priority before the (possibly cold) first open; both are cheap and synchronous,
                 // so the popup still takes the foreground before the next input.
                 _warmup.UserEngaged();
-                _popup.Toggle(PopupSource.Hotkey);
+                OpenPopup(PopupSource.Hotkey, toggle: true);
             }
         };
         _host.ActivateRequested += (_, _) =>
         {
             _warmup.UserEngaged();
-            _popup.Show(PopupSource.SecondInstance);
+            OpenPopup(PopupSource.SecondInstance);
         };
         _host.TrayActivity += OnTray;
         _host.SettingChanged += OnSettingChanged;
@@ -199,10 +200,26 @@ internal sealed class AppController : ISettingsHost, IDisposable
             _popupRebuilds.Dequeue();
         }
 
-        if (_stopped || _popupRebuilds.Count >= 3)
+        if (_stopped)
         {
             return;
         }
+
+        if (_popupRebuilds.Count >= 3)
+        {
+            // Fresh windows keep failing: stop rebuilding for a while (capture keeps running), say so
+            // once, and let the next open after the cool-down try again.
+            if (!_popupDisabledNoticeShown)
+            {
+                _popupDisabledNoticeShown = true;
+                _log.Error(Category, "The popup keeps failing; it is paused for a few minutes");
+                Notify(Strings.PopupPaused, warning: true);
+            }
+
+            return;
+        }
+
+        _popupDisabledNoticeShown = false;
 
         _popupRebuilds.Enqueue(now);
         _log.Warning(Category, "Rebuilding the popup after an error");
@@ -242,12 +259,32 @@ internal sealed class AppController : ISettingsHost, IDisposable
             }
         });
 
-    /// <summary>An unhandled UI error: if it came from the popup's tree, this stops it from repeating.</summary>
+    /// <summary>
+    /// An unhandled UI error while the popup is up (shown or warming up) most likely came from its
+    /// tree: take it out of service so it stops repeating. Errors elsewhere leave the popup alone.
+    /// </summary>
     public void ContainUiFailure(Exception exception)
     {
-        if (!_stopped)
+        if (!_stopped && _popupWindow is { IsVisible: true })
         {
-            _popup?.FailFromOutside(exception);
+            _popup.FailFromOutside(exception);
+        }
+    }
+
+    /// <summary>Opens (or toggles) the popup; a popup that failed is replaced first.</summary>
+    private void OpenPopup(PopupSource source, bool toggle = false)
+    {
+        if (_popup.HasFailed)
+        {
+            RecoverPopup(source);
+        }
+        else if (toggle)
+        {
+            _popup.Toggle(source);
+        }
+        else
+        {
+            _popup.Show(source);
         }
     }
 
@@ -266,7 +303,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
     private void RunFirstStartTasks(HotkeyStatus hotkeyStatus)
     {
         var firstRun = !_autostart.FirstRunDone;
-        _autostart.RegisterOnFirstRun();
+        TryAutostart(() => _autostart.RegisterOnFirstRun());
 
         if (firstRun && _options.IsManualStart)
         {
@@ -281,10 +318,10 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
         if (_options.IsManualStart)
         {
-            _autostart.RepairIfBroken();
+            TryAutostart(() => _autostart.RepairIfBroken());
 
             // A manual start of an already-configured app means "show me the history".
-            _dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => _popup.Show(PopupSource.SecondInstance));
+            _dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => OpenPopup(PopupSource.SecondInstance));
         }
         else if (_options.UpdatedFrom is not null)
         {
@@ -329,7 +366,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
             if (welcome.AutostartChosen != (_autostart.State == AutostartState.On) && !_autostart.IsVolatileLocation)
             {
-                _autostart.SetEnabled(welcome.AutostartChosen);
+                TryAutostart(() => _autostart.SetEnabled(welcome.AutostartChosen));
             }
 
             if (welcome.StartMenuChosen != StartMenuShortcut.Exists)
@@ -440,7 +477,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
                 _warmup.UserEngaged();
                 if (!_popup.IsOpen && !_popup.RecentlyHidden)
                 {
-                    _popup.Show(PopupSource.Tray);
+                    OpenPopup(PopupSource.Tray);
                 }
 
                 break;
@@ -463,7 +500,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
         switch (command)
         {
             case TrayCommand.Open:
-                _popup.Show(PopupSource.Tray);
+                OpenPopup(PopupSource.Tray);
                 break;
             case TrayCommand.Pause5:
                 _monitoring.PauseFor(TimeSpan.FromMinutes(5));
@@ -595,7 +632,23 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
     public bool ExeInDownloads => _autostart.IsInDownloads;
 
-    public void SetAutostart(bool enabled) => _autostart.SetEnabled(enabled);
+    public void SetAutostart(bool enabled) => TryAutostart(() => _autostart.SetEnabled(enabled));
+
+    /// <summary>
+    /// Security software or a policy can block the Run key; the app then just runs without
+    /// autostart (the settings show the real state) instead of failing to start.
+    /// </summary>
+    private void TryAutostart(Action change)
+    {
+        try
+        {
+            change();
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
+        {
+            _log.Warning(Category, "Could not change the autostart entry", ex);
+        }
+    }
 
     public bool StartMenuShortcutExists => StartMenuShortcut.Exists;
 

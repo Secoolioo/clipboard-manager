@@ -399,7 +399,14 @@ internal sealed partial class SettingsWindow : Window
     {
         // Full path: a bare "explorer.exe" would be searched in the current directory (e.g. Downloads) first.
         var explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
-        Process.Start(new ProcessStartInfo(explorer, $"\"{_host.DataFolder}\"") { UseShellExecute = false })?.Dispose();
+        try
+        {
+            Process.Start(new ProcessStartInfo(explorer, $"\"{_host.DataFolder}\"") { UseShellExecute = false })?.Dispose();
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // Explorer blocked or missing (kiosk, policy): nothing to open.
+        }
     }
 
     private void OnLicenses(object sender, RoutedEventArgs e) => _host.ShowLicenses(this);

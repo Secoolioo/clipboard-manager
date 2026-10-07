@@ -250,5 +250,9 @@ public static partial class Strings
         $"Clipboard Manager wurde nach wiederholten Fehlern beendet. Starte es über das Startmenü neu.\n\nDetails stehen im Log (es enthält nie Inhalte der Zwischenablage) – gern an ein GitHub-Issue anhängen:\n{logFile}\n\nLog-Ordner öffnen?",
         $"Clipboard Manager stopped after repeated errors. Start it again from the Start menu.\n\nDetails are in the log (it never contains clipboard content) – feel free to attach it to a GitHub issue:\n{logFile}\n\nOpen the log folder?");
 
+    public static string PopupPaused => T(
+        "Das Verlaufsfenster ist wiederholt fehlgeschlagen und pausiert ein paar Minuten. Kopien werden weiter aufgezeichnet; hilft es nicht, die App neu starten.",
+        "The history window failed repeatedly and is paused for a few minutes. Copies are still recorded; if it keeps happening, restart the app.");
+
     public static string AlreadyRunningElevated => T("Clipboard Manager läuft bereits als Administrator. Beende diese Instanz zuerst.", "Clipboard Manager is already running as administrator. Exit that instance first.");
 }

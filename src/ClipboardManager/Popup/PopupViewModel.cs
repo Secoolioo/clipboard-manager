@@ -18,7 +18,9 @@ public sealed class PopupViewModel : ObservableObject
 
     private HistorySnapshot _source = HistorySnapshot.Empty;
     private string _query = string.Empty;
-    private IReadOnlyList<PopupRow> _rows = [];
+    private readonly RowCollection _rows = [];
+    private readonly Dictionary<long, EntryRow> _entryRows = [];
+    private readonly Dictionary<string, PopupRow> _fixedRows = [];
     private PopupRow? _selected;
     private long? _currentEntryId;
     private SkipReason _skip;
@@ -52,11 +54,11 @@ public sealed class PopupViewModel : ObservableObject
         }
     }
 
-    public IReadOnlyList<PopupRow> Rows
-    {
-        get => _rows;
-        private set => Set(ref _rows, value);
-    }
+    /// <summary>
+    /// One collection for the window's lifetime, updated in place: the list then reuses (recycles)
+    /// its item containers while typing instead of rebuilding all of them for a new list.
+    /// </summary>
+    public IReadOnlyList<PopupRow> Rows => _rows;
 
     public PopupRow? Selected
     {
@@ -185,7 +187,9 @@ public sealed class PopupViewModel : ObservableObject
         _source = HistorySnapshot.Empty;
         _query = string.Empty;
         OnPropertyChanged(nameof(Query));
-        Rows = [];
+        _rows.Clear();
+        _entryRows.Clear();
+        _fixedRows.Clear();
         Selected = null;
     }
 
@@ -277,17 +281,17 @@ public sealed class PopupViewModel : ObservableObject
 
         if (!_isLoaded)
         {
-            rows.Add(new NoticeRow(Strings.Loading, "", isWarning: false));
+            rows.Add(Fixed(new NoticeRow(Strings.Loading, "", isWarning: false)));
         }
 
         if (_skip != SkipReason.None && terms.Length == 0)
         {
-            rows.Add(new NoticeRow(Strings.Skipped(_skip), "", isWarning: true));
+            rows.Add(Fixed(new NoticeRow(Strings.Skipped(_skip), "", isWarning: true)));
         }
 
         if (filtered.Pinned.Count > 0)
         {
-            rows.Add(new HeaderRow(Strings.PinnedHeader, filtered.Pinned.Count));
+            rows.Add(Fixed(new HeaderRow(Strings.PinnedHeader, filtered.Pinned.Count)));
             var showAll = terms.Length > 0 || _pinnedExpanded || filtered.Pinned.Count <= CollapsedPinnedCount + 1;
             var shown = showAll ? filtered.Pinned : filtered.Pinned.Take(CollapsedPinnedCount);
             foreach (var entry in shown)
@@ -297,16 +301,16 @@ public sealed class PopupViewModel : ObservableObject
 
             if (!showAll)
             {
-                rows.Add(new MoreRow(Strings.MorePinned(filtered.Pinned.Count - CollapsedPinnedCount)));
+                rows.Add(Fixed(new MoreRow(Strings.MorePinned(filtered.Pinned.Count - CollapsedPinnedCount))));
             }
             else if (_pinnedExpanded && terms.Length == 0 && filtered.Pinned.Count > CollapsedPinnedCount + 1)
             {
-                rows.Add(new MoreRow(Strings.FewerPinned));
+                rows.Add(Fixed(new MoreRow(Strings.FewerPinned)));
             }
 
             if (filtered.History.Count > 0)
             {
-                rows.Add(new HeaderRow(Strings.HistoryHeader, filtered.History.Count));
+                rows.Add(Fixed(new HeaderRow(Strings.HistoryHeader, filtered.History.Count)));
             }
         }
 
@@ -317,9 +321,9 @@ public sealed class PopupViewModel : ObservableObject
 
         if (filtered.Count == 0 && _isLoaded)
         {
-            rows.Add(terms.Length > 0
+            rows.Add(Fixed(terms.Length > 0
                 ? new NoticeRow(Strings.NoResults, "", isWarning: false)
-                : new NoticeRow(Strings.EmptyHint, "", isWarning: false));
+                : new NoticeRow(Strings.EmptyHint, "", isWarning: false)));
         }
 
         var entryRows = rows.OfType<EntryRow>().ToList();
@@ -329,7 +333,7 @@ public sealed class PopupViewModel : ObservableObject
             entryRows[i].SetSize = entryRows.Count;
         }
 
-        Rows = rows;
+        _rows.Update(rows);
         ResultsText = terms.Length > 0 ? Strings.Matches(filtered.Count) : string.Empty;
         OnPropertyChanged(nameof(HasEntries));
         if (selectDefault)
@@ -342,8 +346,35 @@ public sealed class PopupViewModel : ObservableObject
         }
     }
 
-    private EntryRow Row(HistoryEntry entry, string[] terms, DateTimeOffset now) =>
-        new(entry, terms, now) { IsCurrent = entry.Id == _currentEntryId };
+    /// <summary>The same header, notice or "more" row while its text stays the same (see <see cref="Row"/>).</summary>
+    private PopupRow Fixed(PopupRow row)
+    {
+        var key = row.GetType().Name + "|" + row.AutomationName;
+        if (_fixedRows.TryGetValue(key, out var existing))
+        {
+            return existing;
+        }
+
+        _fixedRows[key] = row;
+        return row;
+    }
+
+    /// <summary>The same row object for an unchanged entry, so typing does not rebuild the list's containers.</summary>
+    private EntryRow Row(HistoryEntry entry, string[] terms, DateTimeOffset now)
+    {
+        if (_entryRows.TryGetValue(entry.Id, out var row) && ReferenceEquals(row.Entry, entry))
+        {
+            row.Refresh(terms, now);
+        }
+        else
+        {
+            row = new EntryRow(entry, terms, now);
+            _entryRows[entry.Id] = row;
+        }
+
+        row.IsCurrent = entry.Id == _currentEntryId;
+        return row;
+    }
 
     /// <summary>
     /// Without a query: the newest history entry that is not already in the clipboard (Alt+Tab logic,

@@ -90,6 +90,9 @@ internal sealed class PopupController : IPopupActions
 
     public bool IsPrewarming => _window.IsPrewarming;
 
+    /// <summary>The window failed and was taken out of service; the controller replaces it.</summary>
+    public bool HasFailed => _failed;
+
     /// <summary>Hide-then-click on the tray icon must not reopen immediately.</summary>
     public bool RecentlyHidden => Environment.TickCount64 - _hiddenAt < 300;
 
