@@ -41,6 +41,7 @@ internal sealed partial class PopupWindow : Window
     private const int ClickGuardMilliseconds = 150;
 
     private readonly System.Windows.Threading.DispatcherTimer _announceResults;
+    private readonly List<FrameworkElement> _secondaryHints = [];
     private long _shownAt;
     private bool _allowClose;
 
@@ -98,6 +99,12 @@ internal sealed partial class PopupWindow : Window
         ListColumn.Width = compact ? new GridLength(1, GridUnitType.Star) : new GridLength(400);
         PreviewPane.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         Divider.Visibility = PreviewPane.Visibility;
+
+        // The narrow window has room for one line of hints: keep copy, preview toggle and close.
+        foreach (var hint in _secondaryHints)
+        {
+            hint.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        }
     }
 
     /// <summary>Logical (DIP) size before text scaling.</summary>
@@ -367,22 +374,26 @@ internal sealed partial class PopupWindow : Window
     private void BuildHints()
     {
         var german = Strings.IsGerman;
-        (string Key, string Label)[] hints =
+        (string Key, string Label, bool Secondary)[] hints =
         [
-            ("↵", Strings.HintCopy),
-            (german ? "⇧ Entf" : "⇧ Del", Strings.HintDelete),
-            (german ? "Strg P" : "Ctrl P", Strings.HintPin),
-            ("Tab", Strings.HintPreview),
-            ("Esc", Strings.HintClose),
+            ("↵", Strings.HintCopy, false),
+            (german ? "⇧ Entf" : "⇧ Del", Strings.HintDelete, true),
+            (german ? "Strg P" : "Ctrl P", Strings.HintPin, true),
+            ("Tab", Strings.HintPreview, false),
+            ("Esc", Strings.HintClose, false),
         ];
 
-        foreach (var (key, label) in hints)
+        foreach (var (key, label, secondary) in hints)
         {
             var panel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 16, 0) };
             var border = new Border { Style = (Style)FindResource("Kbd"), Child = new TextBlock { Text = key, FontSize = 11 } };
             panel.Children.Add(border);
             panel.Children.Add(new TextBlock { Text = label, Style = (Style)FindResource("HintText") });
             Hints.Children.Add(panel);
+            if (secondary)
+            {
+                _secondaryHints.Add(panel);
+            }
         }
     }
 }
