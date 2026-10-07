@@ -1,13 +1,17 @@
 namespace ClipboardManager.Core.Updates;
 
 /// <summary>
-/// Replaces the EXE of the running process in place. Windows refuses to overwrite or delete a
-/// running image but allows renaming it, so the running file moves aside to "*.old" and the
-/// verified download ("*.new") takes its name. The path stays the same, so the autostart entry and
-/// shortcuts keep working. Virus scanners briefly lock fresh files, so every step retries.
+/// Puts a verified download ("*.new") in place of the EXE. No running image is ever renamed or
+/// replaced: a single-file app keeps reading its assemblies from its own path while it runs. So the
+/// download is started as it is, waits until the previous version has exited, moves the previous
+/// EXE aside to "*.old" and copies itself to the EXE path. The path stays the same, so the autostart
+/// entry and shortcuts keep working. Virus scanners briefly lock fresh files, so every step retries.
 /// </summary>
 public sealed class ExeSwap
 {
+    /// <summary>Suffix of the verified download next to the EXE.</summary>
+    public const string DownloadSuffix = ".new";
+
     private readonly int _attempts;
     private readonly TimeSpan _retryDelay;
 
@@ -21,44 +25,42 @@ public sealed class ExeSwap
 
     public string ExePath { get; }
 
-    /// <summary>Where the verified download is written before the swap.</summary>
-    public string NewPath => ExePath + ".new";
+    /// <summary>Where the verified download is written; it is also what runs to install itself.</summary>
+    public string NewPath => ExePath + DownloadSuffix;
 
     /// <summary>The previous EXE after the swap, deleted by the next start.</summary>
     public string OldPath => ExePath + ".old";
 
-    /// <summary>EXE → *.old, *.new → EXE. On failure the EXE is put back and the exception rethrown.</summary>
-    public void Apply()
+    /// <summary>
+    /// EXE → *.old, copy of *.new → EXE. Runs in the downloaded EXE after the previous version
+    /// exited; the download is copied, not moved, because it is the running image. On failure the
+    /// previous EXE is put back and the exception rethrown.
+    /// </summary>
+    public void Install()
     {
         if (!File.Exists(NewPath))
         {
             throw new FileNotFoundException("No downloaded update to install");
         }
 
-        Retry(() => File.Delete(OldPath));
-        Retry(() => File.Move(ExePath, OldPath));
+        var hadExe = File.Exists(ExePath);
+        if (hadExe)
+        {
+            Retry(() => File.Delete(OldPath));
+            Retry(() => File.Move(ExePath, OldPath));
+        }
+
         try
         {
-            Retry(() => File.Move(NewPath, ExePath));
+            Retry(() => File.Copy(NewPath, ExePath, overwrite: true));
         }
-        catch (Exception ex) when (IsFileError(ex))
+        catch (Exception ex) when (IsFileError(ex) && hadExe)
         {
-            try
-            {
-                Retry(() => File.Move(OldPath, ExePath));
-            }
-            catch (Exception rollback) when (IsFileError(rollback))
-            {
-                // Some EXE must stay at the path (autostart, shortcuts): the verified new one will do.
-                Retry(() => File.Move(NewPath, ExePath));
-            }
-
+            // Replaces a partial copy, too: some working EXE must stay at the path.
+            Retry(() => File.Move(OldPath, ExePath, overwrite: true));
             throw;
         }
     }
-
-    /// <summary>Undoes <see cref="Apply"/> when the new EXE could not be started: the previous EXE gets its name back.</summary>
-    public void Revert() => Retry(() => File.Move(OldPath, ExePath, overwrite: true));
 
     /// <summary>Best effort, never throws: the previous EXE after an update (it may still be closing).</summary>
     public bool TryDeleteOld()
@@ -74,12 +76,12 @@ public sealed class ExeSwap
         }
     }
 
-    /// <summary>Best effort, never throws, no retries: a rejected download or one a crash left behind.</summary>
+    /// <summary>Best effort, never throws: a rejected download, an installed one or one a crash left behind.</summary>
     public bool TryDiscardDownload()
     {
         try
         {
-            File.Delete(NewPath);
+            Retry(() => File.Delete(NewPath));
             return true;
         }
         catch (Exception ex) when (IsFileError(ex))

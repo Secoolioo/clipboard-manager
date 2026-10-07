@@ -17,6 +17,12 @@ internal static class Program
         try
         {
             options = StartupOptions.Parse(args);
+            if (options.FinishUpdateFrom is { } starter)
+            {
+                // The downloaded EXE installing itself; it never takes the mutex or loads the UI.
+                return Updates.SelfUpdate.FinishInstall(starter, options.Log);
+            }
+
             if (!options.SelfTest)
             {
                 if (options.UpdatedFrom is { } previous)
@@ -99,6 +105,8 @@ internal static class Program
     /// <summary>Plain Win32 message box (WPF itself may be what failed) that offers to show the log.</summary>
     private static void ShowError(string text, StartupOptions? options)
     {
+        // The message says "start it again": a start while it is still open must not see a running instance.
+        SingleInstance.Release();
         if (User32.MessageBox(IntPtr.Zero, text, Strings.AppName, User32.MB_ICONERROR | User32.MB_YESNO) != User32.IDYES)
         {
             return;

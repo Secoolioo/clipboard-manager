@@ -91,8 +91,10 @@ internal static class SingleInstance
             using var previous = Process.GetProcessById(processId);
             using var self = Process.GetCurrentProcess();
 
-            // Process IDs are reused: only wait for another copy of this app.
-            if (string.Equals(previous.ProcessName, self.ProcessName, StringComparison.OrdinalIgnoreCase))
+            // Process IDs are reused: only wait for another copy of this app. The installing
+            // download runs as "ClipboardManager.exe.new", whose process name is "ClipboardManager.exe".
+            if (previous.ProcessName.StartsWith(self.ProcessName, StringComparison.OrdinalIgnoreCase) ||
+                self.ProcessName.StartsWith(previous.ProcessName, StringComparison.OrdinalIgnoreCase))
             {
                 previous.WaitForExit(timeout);
             }

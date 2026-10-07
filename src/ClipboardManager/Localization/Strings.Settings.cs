@@ -142,6 +142,12 @@ public static partial class Strings
 
     public static string OpenReleasesPage => T("Releases-Seite öffnen", "Open releases page");
 
+    public static string UpdateMemoryOnlyTitle => T("Verlauf nur im Arbeitsspeicher", "History in memory only");
+
+    public static string UpdateMemoryOnlyMessage(int count) => T(
+        $"Das Update startet die App neu. Im Modus „nur im Arbeitsspeicher“ gehen dabei {count} nicht angeheftete Einträge verloren; Angeheftetes bleibt.",
+        $"The update restarts the app. In memory-only mode this discards {count} unpinned entries; pins are kept.");
+
     public static string UpdateNote => T(
         "Fragt nur auf Klick bei GitHub nach der neuesten Version, ohne Daten über dich oder deine Zwischenablage. Einstellungen und Verlauf bleiben beim Update erhalten.",
         "Asks GitHub for the latest version only when you click, without sending anything about you or your clipboard. Settings and history are kept when updating.");

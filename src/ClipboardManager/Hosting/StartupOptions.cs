@@ -11,6 +11,9 @@ internal sealed record StartupOptions(bool Autostart, bool SelfTest, bool SelfTe
     /// <summary>Started by the in-app updater: the process ID of the version it replaces.</summary>
     public int? UpdatedFrom { get; init; }
 
+    /// <summary>The downloaded EXE installing itself: the process ID of the version that started it.</summary>
+    public int? FinishUpdateFrom { get; init; }
+
     /// <summary>Started by the user (double-click, Start menu), not by Windows or the updater.</summary>
     public bool IsManualStart => !Autostart && UpdatedFrom is null;
 
@@ -37,13 +40,16 @@ internal sealed record StartupOptions(bool Autostart, bool SelfTest, bool SelfTe
             log = FileLog.Null;
         }
 
-        return new StartupOptions(autostart, selfTest || selfTestClipboard, selfTestClipboard, paths, log) { IdleSeconds = idle, UpdatedFrom = ParseUpdatedFrom(args) };
+        return new StartupOptions(autostart, selfTest || selfTestClipboard, selfTestClipboard, paths, log) { IdleSeconds = idle, UpdatedFrom = ParseUpdatedFrom(args), FinishUpdateFrom = ParseProcessId(args, Updates.SelfUpdate.FinishUpdateArgument) };
     }
 
     /// <summary>"--updated-from &lt;pid&gt;", passed by <see cref="Updates.SelfUpdate"/>.</summary>
-    internal static int? ParseUpdatedFrom(string[] args)
+    internal static int? ParseUpdatedFrom(string[] args) => ParseProcessId(args, Updates.SelfUpdate.UpdatedFromArgument);
+
+    /// <summary>"&lt;argument&gt; &lt;pid&gt;"; anything malformed counts as absent.</summary>
+    internal static int? ParseProcessId(string[] args, string argument)
     {
-        var index = Array.FindIndex(args, a => string.Equals(a, Updates.SelfUpdate.UpdatedFromArgument, StringComparison.OrdinalIgnoreCase));
+        var index = Array.FindIndex(args, a => string.Equals(a, argument, StringComparison.OrdinalIgnoreCase));
         return index >= 0 && index + 1 < args.Length &&
             int.TryParse(args[index + 1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var pid) && pid > 0
             ? pid

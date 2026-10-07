@@ -467,6 +467,16 @@ internal sealed partial class SettingsWindow : Window
             return;
         }
 
+        // The update restarts the app: in memory-only mode that ends the unpinned history.
+        if (_host.Settings.MemoryOnly)
+        {
+            var count = await _host.CountMemoryOnlyEntriesAsync().ConfigureAwait(true);
+            if (count > 0 && ConfirmDialog.Ask(Strings.UpdateMemoryOnlyTitle, Strings.UpdateMemoryOnlyMessage(count), Strings.InstallUpdate, owner: this) is null)
+            {
+                return;
+            }
+        }
+
         using var cancellation = new CancellationTokenSource();
         _update = cancellation;
         ShowUpdate(Strings.UpdateDownloading(0), UpdateStep.Downloading);

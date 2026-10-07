@@ -222,6 +222,9 @@ internal sealed class PopupController : IPopupActions
         StatusRequested?.Invoke(this, EventArgs.Empty);
         try
         {
+            // A popup that was never warmed up (quiet start, replaced after an error) has no
+            // window yet; placing needs one, and display affinity must apply before the first frame.
+            new WindowInteropHelper(_window).EnsureHandle();
             LoadSnapshot(initial: true);
             Place(foreground);
             _window.Show();

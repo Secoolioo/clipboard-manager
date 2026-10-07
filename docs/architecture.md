@@ -46,9 +46,12 @@ Three execution contexts, all idle without CPU load:
   only for one click on *Check for updates* or *Install update*. It asks the GitHub API for the
   latest release, then streams the EXE for the process architecture to `<exe>.new` while hashing
   it, and keeps it only if size and SHA-256 match `SHA256SUMS.txt`. Redirects are followed by hand
-  and only to GitHub hosts. The swap renames the running `<exe>` to `<exe>.old` (allowed while running), the download to `<exe>`
-  (rolled back on failure) and starts it with `--updated-from <pid>`; the new process waits for
-  the old one to exit before it takes the single-instance mutex, then deletes `<exe>.old`.
+  and only to GitHub hosts. No running image is ever renamed – a single-file app keeps reading
+  its assemblies from its own path while it runs. Instead the running version starts the download
+  as it is (`<exe>.new --finish-update <pid>`) and exits; the download waits for it, moves the
+  previous `<exe>` to `<exe>.old`, copies itself to `<exe>` (rolled back on failure) and starts that
+  with `--updated-from <pid>` without ever loading the UI. The final process waits for the helper,
+  takes the single-instance mutex and deletes `<exe>.new` and `<exe>.old`.
 
 ## Startup
 
@@ -134,5 +137,5 @@ The published EXE is additionally run with `--selftest` in CI on x64 and ARM64.
 | 13 | **Copy, not auto-paste**, in v1 | predictable; focus is returned to the previous app so Ctrl+V lands right; `Shift+Enter` is reserved for a later "copy and paste" | auto-paste via `SendInput` |
 | 14 | **Exit on WM_QUERYENDSESSION** | WPF calls `Shutdown()` when `SessionEnding` is not cancelled, and cancelling would block logoff (or get the background app killed). Every capture is already committed, so the app closes its services in a bounded time there; if the user aborts the shutdown, the app starts again at the next sign-in | wait for WM_ENDSESSION |
 | 15 | **No initial capture at startup** | content copied while the app was not running (possibly during a pause or an "ignore next copy" of an earlier run) is not recorded | read the clipboard once at start |
-| 16 | **Updates only on an explicit click, swapped in place** | the privacy promise allows network access only when the user asks for it, and then only to GitHub; one EXE without an installer updates without admin rights: the running EXE can be renamed but not overwritten, so it moves to `*.old` and the verified download takes its path – autostart entry and shortcuts stay valid, settings and history live in `%LOCALAPPDATA%`. `--updated-from <pid>` is a contract every later version must keep, or an update would leave no instance running | automatic or periodic checks, a separate updater EXE, MSIX/winget, an elevated installer |
+| 16 | **Updates only on an explicit click, swapped in place** | the privacy promise allows network access only when the user asks for it, and then only to GitHub; one EXE without an installer updates without admin rights: the verified download installs itself once the running version has exited – it moves the previous EXE to `*.old` and copies itself to the same path, so autostart entry and shortcuts stay valid; settings and history live in `%LOCALAPPDATA%`. Renaming the running EXE instead would leave a single-file process reading assemblies from the wrong file. `--finish-update <pid>` and `--updated-from <pid>` are a contract every later version must keep, or an update would leave no instance running | automatic or periodic checks, a separate updater EXE, MSIX/winget, an elevated installer |
 | 17 | **Quiet autostart** (below-normal priority, optional work and notices deferred) | sign-in is when every startup app competes for CPU and disk; in the first minute only capture and the hotkey matter, and a toast or window at login is noise | Task Scheduler with a start delay (hidden from users), a fixed sleep before starting (hotkey and capture would be missing), full start at normal priority |

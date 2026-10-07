@@ -2,7 +2,7 @@ using ClipboardManager.Core.Updates;
 
 namespace ClipboardManager.Tests.Updates;
 
-/// <summary>The in-place EXE swap against temp files. Nothing is started.</summary>
+/// <summary>The EXE swap of an installing download against temp files. Nothing is started.</summary>
 [Trait("Category", "Update")]
 public sealed class ExeSwapTests : IDisposable
 {
@@ -19,19 +19,20 @@ public sealed class ExeSwapTests : IDisposable
     public void Dispose() => _dir.Dispose();
 
     /// <summary>Opens the file like the loader opens a running image: readable, renamable, not writable.</summary>
-    private FileStream HoldLikeARunningImage() => new(_swap.ExePath, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+    private static FileStream HoldLikeARunningImage(string path) => new(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
 
     [Fact]
-    public void The_running_exe_moves_aside_and_the_download_takes_its_name()
+    public void The_previous_exe_moves_aside_and_a_copy_of_the_running_download_takes_its_name()
     {
-        using (HoldLikeARunningImage())
+        // The download is the running image while it installs itself: it is only read.
+        using (HoldLikeARunningImage(_swap.NewPath))
         {
-            _swap.Apply();
+            _swap.Install();
         }
 
         Assert.Equal("new version", File.ReadAllText(_swap.ExePath));
         Assert.Equal("old version", File.ReadAllText(_swap.OldPath));
-        Assert.False(File.Exists(_swap.NewPath));
+        Assert.Equal("new version", File.ReadAllText(_swap.NewPath));
     }
 
     [Fact]
@@ -39,19 +40,29 @@ public sealed class ExeSwapTests : IDisposable
     {
         File.WriteAllText(_swap.OldPath, "older version");
 
-        _swap.Apply();
+        _swap.Install();
 
         Assert.Equal("new version", File.ReadAllText(_swap.ExePath));
         Assert.Equal("old version", File.ReadAllText(_swap.OldPath));
     }
 
     [Fact]
-    public void A_locked_download_rolls_the_swap_back()
+    public void A_missing_exe_is_simply_created()
     {
-        using (new FileStream(_swap.NewPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-        using (HoldLikeARunningImage())
+        File.Delete(_swap.ExePath);
+
+        _swap.Install();
+
+        Assert.Equal("new version", File.ReadAllText(_swap.ExePath));
+        Assert.False(File.Exists(_swap.OldPath));
+    }
+
+    [Fact]
+    public void A_download_that_cannot_be_read_puts_the_previous_exe_back()
+    {
+        using (new FileStream(_swap.NewPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
         {
-            Assert.ThrowsAny<IOException>(_swap.Apply);
+            Assert.ThrowsAny<IOException>(_swap.Install);
         }
 
         Assert.Equal("old version", File.ReadAllText(_swap.ExePath));
@@ -60,22 +71,24 @@ public sealed class ExeSwapTests : IDisposable
     }
 
     [Fact]
+    public void A_previous_exe_that_is_still_running_is_never_overwritten()
+    {
+        // Still running (it should have exited): moving it aside is allowed, writing it is not.
+        using (HoldLikeARunningImage(_swap.ExePath))
+        {
+            _swap.Install();
+        }
+
+        Assert.Equal("new version", File.ReadAllText(_swap.ExePath));
+        Assert.Equal("old version", File.ReadAllText(_swap.OldPath));
+    }
+
+    [Fact]
     public void Nothing_changes_without_a_download()
     {
         File.Delete(_swap.NewPath);
 
-        Assert.Throws<FileNotFoundException>(_swap.Apply);
-
-        Assert.Equal("old version", File.ReadAllText(_swap.ExePath));
-        Assert.False(File.Exists(_swap.OldPath));
-    }
-
-    [Fact]
-    public void Revert_restores_the_previous_exe_when_the_new_one_cannot_start()
-    {
-        _swap.Apply();
-
-        _swap.Revert();
+        Assert.Throws<FileNotFoundException>(_swap.Install);
 
         Assert.Equal("old version", File.ReadAllText(_swap.ExePath));
         Assert.False(File.Exists(_swap.OldPath));
@@ -84,7 +97,7 @@ public sealed class ExeSwapTests : IDisposable
     [Fact]
     public void The_old_exe_is_deleted_best_effort()
     {
-        _swap.Apply();
+        _swap.Install();
 
         using (new FileStream(_swap.OldPath, FileMode.Open, FileAccess.Read, FileShare.Read))
         {
