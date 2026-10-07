@@ -41,6 +41,9 @@
         <StackPanel>
           <CheckBox x:Name="AutostartBox" Style="{StaticResource Row}" Content="{x:Static loc:Strings.StartWithWindows}" Click="OnAutostartClick" />
           <TextBlock x:Name="AutostartNote" Style="{StaticResource Note}" Visibility="Collapsed" />
+          <TextBlock Style="{StaticResource Note}" Margin="28,0,0,8">
+            <Hyperlink Click="OnStartupApps"><Run Text="{x:Static loc:Strings.OpenStartupApps}" /></Hyperlink>
+          </TextBlock>
           <CheckBox x:Name="StartMenuBox" Style="{StaticResource Row}" Content="{x:Static loc:Strings.ShowInStartMenu}" Click="OnStartMenuClick" />
           <CheckBox x:Name="RecordBox" Style="{StaticResource Row}" Content="{x:Static loc:Strings.RecordClipboard}" Click="OnRecordClick" />
           <Grid Margin="0,10,0,0">

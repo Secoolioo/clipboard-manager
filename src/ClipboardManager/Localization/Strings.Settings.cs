@@ -26,6 +26,8 @@ public static partial class Strings
         "Tipp: Lege die EXE in einen festen Ordner, z. B. %LOCALAPPDATA%\\Programs. Nach dem Verschieben einmal starten – der Autostart folgt.",
         "Tip: keep the EXE in a permanent folder such as %LOCALAPPDATA%\\Programs. Start it once after moving; autostart follows.");
 
+    public static string OpenStartupApps => T("Autostart-Apps in Windows verwalten", "Manage startup apps in Windows");
+
     public static string ShowInStartMenu => T("Im Startmenü anzeigen", "Show in Start menu");
 
     public static string RecordClipboard => T("Zwischenablage aufzeichnen", "Record the clipboard");

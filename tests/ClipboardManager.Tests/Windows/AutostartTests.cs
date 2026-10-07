@@ -155,6 +155,50 @@ public sealed class AutostartTests : IDisposable
     }
 
     [Fact]
+    public void An_updated_exe_at_the_same_path_keeps_the_entry_and_the_windows_decision()
+    {
+        Create().RegisterOnFirstRun();
+        var command = RunValue();
+
+        // The updater replaces the file in place: a new process with the same path starts.
+        var updated = Create();
+        Assert.Equal(AutostartState.On, updated.State);
+        Assert.False(updated.RegisterOnFirstRun());
+        Assert.False(updated.RepairIfBroken());
+        Assert.Equal(command, RunValue());
+
+        DisableInTaskManager();
+        var updatedAgain = Create();
+        Assert.False(updatedAgain.RepairIfBroken());
+        Assert.Equal(AutostartState.DisabledInWindows, updatedAgain.State);
+        Assert.Equal(command, RunValue());
+    }
+
+    /// <summary>
+    /// The first-run rule: permanent folders register (Downloads only gets a tip), places that are
+    /// gone soon do not – ZIP and installer extraction under %TEMP%, network shares. Removable and
+    /// network drives are skipped too because they may not be there at sign-in.
+    /// </summary>
+    [Theory]
+    [InlineData("Downloads", false)]
+    [InlineData("Desktop", false)]
+    [InlineData(@"AppData\Local\Programs\ClipboardManager", false)]
+    [InlineData(@"OneDrive\Desktop", false)]
+    [InlineData("%TEMP%\\Temp1_ClipboardManager-x64.zip", true)]
+    [InlineData("%TEMP%\\7zO8A3F2C1D", true)]
+    [InlineData(@"\\server\share\tools", true)]
+    public void Only_temporary_locations_are_volatile(string folder, bool volatileLocation)
+    {
+        var directory = folder.StartsWith('%')
+            ? Path.Combine(Path.GetTempPath(), folder["%TEMP%\\".Length..])
+            : folder.StartsWith(@"\\", StringComparison.Ordinal)
+                ? folder
+                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), folder);
+
+        Assert.Equal(volatileLocation, Autostart.IsVolatile(Path.Combine(directory, "ClipboardManager.exe")));
+    }
+
+    [Fact]
     public void Remove_all_cleans_every_value()
     {
         var autostart = Create();

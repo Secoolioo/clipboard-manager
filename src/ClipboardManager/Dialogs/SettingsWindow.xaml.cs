@@ -19,6 +19,9 @@ internal sealed partial class SettingsWindow : Window
     public const string ProjectUrl = "https://github.com/Secoolioo/clipboard-manager";
     public const string SupportUrl = "https://github.com/Secoolioo/.github/blob/main/DONATE.md";
 
+    /// <summary>Settings &gt; Apps &gt; Startup, where Windows switches the same Run entry on and off.</summary>
+    public const string StartupAppsUri = "ms-settings:startupapps";
+
     private readonly ISettingsHost _host;
     private bool _loading = true;
     private bool _recordingHotkey;
@@ -111,6 +114,9 @@ internal sealed partial class SettingsWindow : Window
         _host.SetAutostart(AutostartBox.IsChecked == true);
         Refresh();
     }
+
+    // A change made there shows up here when this window is activated again (Refresh on Activated).
+    private void OnStartupApps(object sender, RoutedEventArgs e) => _host.OpenUrl(StartupAppsUri);
 
     private void OnStartMenuClick(object sender, RoutedEventArgs e)
     {

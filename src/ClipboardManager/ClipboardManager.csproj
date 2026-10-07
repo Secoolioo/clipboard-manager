@@ -14,6 +14,8 @@
     <!-- Always on (not only when publishing): keeps the lock file identical for build and publish. -->
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
     <Description>Fast, private clipboard history for Windows.</Description>
+    <!-- The EXE's file description: the name Windows shows in Startup apps, Task Manager and on notifications. -->
+    <AssemblyTitle>Clipboard Manager</AssemblyTitle>
   </PropertyGroup>
 
   <!-- Release artifact: one self-contained EXE. Uncompressed on purpose: compressed bundles are

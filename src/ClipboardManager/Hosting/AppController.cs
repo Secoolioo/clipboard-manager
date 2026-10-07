@@ -31,6 +31,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
     private readonly StartupOptions _options;
     private readonly FileLog _log;
     private readonly Dispatcher _dispatcher;
+    private StartupWarmup _warmup = null!;
     private SettingsHolder _settings = null!;
     private MonitoringState _monitoring = null!;
     private HistoryIndex _index = null!;
@@ -66,6 +67,9 @@ internal sealed class AppController : ISettingsHost, IDisposable
     public void Start()
     {
         var started = Stopwatch.GetTimestamp();
+
+        // At sign-in: below normal priority, no notices and no optional work until the user needs the app.
+        _warmup = new StartupWarmup(_options.Autostart, notice => _tray.Notify(notice.Title, notice.Text, notice.Warning), _log);
         var (settings, settingsState) = new SettingsStore(_options.Paths.SettingsFile, _log).Load();
         _settings = new SettingsHolder(new SettingsStore(_options.Paths.SettingsFile, _log), settings);
         Strings.Apply(settings.Language);
@@ -113,13 +117,19 @@ internal sealed class AppController : ISettingsHost, IDisposable
         {
             if (id == HotkeyRegistration.HotkeyId)
             {
+                // Show first: the foreground right ends with the next input.
                 _popup.Toggle(PopupSource.Hotkey);
+                _warmup.UserEngaged();
             }
         };
-        _host.ActivateRequested += (_, _) => _popup.Show(PopupSource.SecondInstance);
+        _host.ActivateRequested += (_, _) =>
+        {
+            _popup.Show(PopupSource.SecondInstance);
+            _warmup.UserEngaged();
+        };
         _host.TrayActivity += OnTray;
         _host.SettingChanged += OnSettingChanged;
-        _host.EnvironmentChanged += (_, _) => OnEnvironmentChanged();
+        _host.EnvironmentChanged += (_, _) => _warmup.Defer(OnEnvironmentChanged);
         _host.SessionEnding += (_, _) => ShutdownForSession();
         _monitoring.Changed += (_, _) => UpdateStatus();
         _settings.Changed += OnSettingsChanged;
@@ -128,7 +138,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
         _capture.Start();
 
         CreatePopup();
-        SchedulePrewarm();
+        _warmup.Defer(SchedulePrewarm);
         UpdateStatus();
 
         _log.Info(Category, $"Started in {Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0} ms (process age {(DateTime.Now - Process.GetCurrentProcess().StartTime).TotalMilliseconds:F0} ms)");
@@ -139,8 +149,8 @@ internal sealed class AppController : ISettingsHost, IDisposable
         }
 
         RunFirstStartTasks(hotkeyStatus);
-        _ = Task.Run(CleanStaleExtractionFolders);
-        _ = Task.Run(CleanUpdateLeftovers);
+        _warmup.Defer(() => _ = Task.Run(CleanStaleExtractionFolders));
+        _warmup.Defer(() => _ = Task.Run(CleanUpdateLeftovers));
     }
 
     // ---- startup helpers -------------------------------------------------------------------
@@ -150,9 +160,12 @@ internal sealed class AppController : ISettingsHost, IDisposable
         var status = await _worker.OpenAsync(_options.Paths, settings.MemoryOnly, settings.Limits).ConfigureAwait(true);
         if (status.Notice != StoreNotice.None)
         {
-            _tray.Notify(Strings.AppName, Strings.StoreNotice(status.Notice), warning: true);
+            Notify(Strings.StoreNotice(status.Notice), warning: true);
         }
     }
+
+    /// <summary>All notices go through the warm-up, so none pops up during a quiet start.</summary>
+    private void Notify(string text, bool warning = false) => _warmup.Notify(new TrayNotice(Strings.AppName, text, warning));
 
     private void CreatePopup()
     {
@@ -314,11 +327,11 @@ internal sealed class AppController : ISettingsHost, IDisposable
     {
         if (status == HotkeyStatus.RegisteredFallback)
         {
-            _tray.Notify(Strings.AppName, Strings.HotkeyFallbackNotice(HotkeyFormatter.Format(_hotkey.Active)));
+            Notify(Strings.HotkeyFallbackNotice(HotkeyFormatter.Format(_hotkey.Active)));
         }
         else if (status == HotkeyStatus.Taken)
         {
-            _tray.Notify(Strings.AppName, Strings.HotkeyTakenNotice, warning: true);
+            Notify(Strings.HotkeyTakenNotice, warning: true);
         }
     }
 
@@ -411,10 +424,18 @@ internal sealed class AppController : ISettingsHost, IDisposable
                     _popup.Show(PopupSource.Tray);
                 }
 
+                _warmup.UserEngaged();
                 break;
             case User32.WM_CONTEXTMENU:
                 _popup.Close(restoreFocus: false);
                 Execute(TrayMenu.Show(_host.Handle, e.AnchorX, e.AnchorY, _monitoring, HotkeyFormatter.Format(_hotkey.Active)));
+
+                // After the menu, so a held notice does not cover it (and none is shown after "Exit").
+                if (!_stopped)
+                {
+                    _warmup.UserEngaged();
+                }
+
                 break;
         }
     }
@@ -774,6 +795,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
         _environmentPrewarm?.Stop();
         try
         {
+            _warmup?.Dispose();
             _popup?.AllowShutdown();
             _settingsWindow?.Close();
             _capture?.Dispose();

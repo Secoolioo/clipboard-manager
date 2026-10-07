@@ -20,7 +20,10 @@ measurements of the published single-file EXE (`dotnet publish -c Release -r win
 ## Design choices that make these numbers possible
 
 - **Event-driven only.** `AddClipboardFormatListener` notifications; no polling. Timers exist only
-  as one-shots (end of a timed pause, tray retry right after login).
+  as one-shots (end of a timed pause, tray retry right after login, end of the quiet start).
+- **Quiet start at sign-in.** Started by Windows (`--autostart`), the app runs at below-normal
+  priority and defers popup pre-warming and cleanup for 45 seconds or until it is first opened;
+  capture and the hotkey are ready immediately (see [architecture.md](architecture.md#startup)).
 - **Software rendering.** For this small, mostly static UI, WPF's hardware path (D3D device) cost
   ~90 MB of private memory on the test machine; `RenderMode.SoftwareOnly` brought the whole app to
   ~35 MB while warm opening stayed below 10 ms.

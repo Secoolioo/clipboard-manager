@@ -19,6 +19,14 @@ All notable changes to this project are documented here. The format follows
 - The privacy guarantee is now "no network connections unless you click *Check for updates*"; a
   test keeps networking code confined to the updater.
 - The About section shows the version without the build commit.
+- Quiet start at sign-in: when Windows starts the app, it shows no window or notification and
+  never takes the focus. Clipboard capture and the shortcut work immediately; for 45 seconds (or
+  until the app is first opened) it runs at below-normal priority and defers popup pre-warming and
+  cleanup. Notices from that phase appear when the history or the tray menu is first opened.
+- Windows lists the app as "Clipboard Manager" (instead of "ClipboardManager") in Startup apps,
+  Task Manager and on notifications.
+- Settings: a link next to "Start with Windows" opens the Windows startup-apps page, where the same
+  entry can be switched off.
 
 ### Fixed
 

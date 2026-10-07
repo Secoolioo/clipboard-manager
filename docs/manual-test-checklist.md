@@ -5,9 +5,11 @@ Run before a release on the CI artifact. Use demo text, never real secrets.
 ## First run and autostart
 
 - [ ] Double-click the EXE from a permanent folder → welcome window, tray icon appears (maybe in the ^ overflow).
-- [ ] Task Manager → Startup apps lists *Clipboard Manager*; sign out and in → app starts silently.
+- [ ] Task Manager → Startup apps and Settings → Apps → Startup list *Clipboard Manager* (publisher Secoolioo).
+- [ ] Sign out and in → no window, no notification, focus stays where it was; the shortcut and capture work right away; Task Manager → Details shows priority *Below normal* for ~45 s, then *Normal* (immediately *Normal* once the history is opened).
 - [ ] Disable it in Task Manager → Settings shows "disabled in Windows"; after sign-in the app does not start.
-- [ ] Re-enable in Settings → enabled in Task Manager again.
+- [ ] Re-enable in Settings → enabled in Task Manager again; "Manage startup apps in Windows" opens Settings → Apps → Startup.
+- [ ] Replace the EXE with a newer build at the same path → the startup entry and its on/off state stay unchanged.
 - [ ] Run the EXE from inside a ZIP → no autostart entry, hint shown.
 - [ ] Move the EXE and start it manually → the autostart entry follows.
 - [ ] Start a second time → the running instance opens its history; no second tray icon.

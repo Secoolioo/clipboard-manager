@@ -50,6 +50,33 @@ Three execution contexts, all idle without CPU load:
   (rolled back on failure) and starts it with `--updated-from <pid>`; the new process waits for
   the old one to exit before it takes the single-instance mutex, then deletes `<exe>.old`.
 
+## Startup
+
+`AppController.Start` makes the app reachable first and does everything optional last:
+
+1. Settings, theme, host window, hotkey, tray icon and clipboard listener. The store opens on the
+   DB worker; after an unclean shutdown it runs `PRAGMA quick_check` there. That check stays in
+   the startup path on purpose: it decides whether the database must be quarantined before the
+   first write, and it never runs on the UI thread.
+2. The popup window is created (not yet rendered).
+3. First-run tasks. A manual first start registers autostart, creates the Start menu entry and
+   shows the welcome window; a later manual start opens the history. Autostart is registered only
+   from a permanent folder: `%TEMP%` (ZIP and archive-tool extraction), UNC paths and removable,
+   network or optical drives are skipped because the entry would soon point to nothing or the
+   drive may be missing at sign-in. Downloads and Desktop count as permanent (Downloads gets a
+   tip to move the EXE). A user's "off" – in the app, in Task Manager or in Settings – is never
+   overwritten, and an updated EXE at the same path keeps the entry as it is.
+4. Deferred work: popup pre-warming and removal of old single-file extraction folders
+   (`%TEMP%\.net\ClipboardManager\*`).
+
+**Quiet start.** With `--autostart` (the Run entry's command), `StartupWarmup` holds step 4 back
+for one 45-second one-shot `DispatcherTimer`, lowers the process to `BelowNormal` until then and
+restores `Normal` afterwards (a priority set by someone else is left alone). Notices raised in that
+phase (store recovery, hotkey taken) wait until the user first opens the popup or the tray menu.
+No window is shown and nothing is activated. Capture and the hotkey work from the first second;
+pressing the hotkey, clicking the tray icon or starting the EXE again ends the quiet phase at once
+(the popup opens directly, the pre-warm is then no longer needed).
+
 ## Data
 
 `%LOCALAPPDATA%\Secoolioo\ClipboardManager\`: `history.db` (+ `-wal`), `settings.json`,
@@ -78,7 +105,7 @@ touched (the app falls back to memory). The registry holds only autostart state:
 
 | Category | What | Where it runs |
 |---|---|---|
-| Unit | policy, secrets, search, previews, settings, hotkeys, popup selection rules, localization | everywhere |
+| Unit | policy, secrets, search, previews, settings, hotkeys, popup selection rules, quiet-start rules, localization | everywhere |
 | Store | real SQLite: dedupe, retention + size budget, pins, undo, recovery, exclusive lock, ordering | everywhere |
 | Privacy | log never contains content, deleted/memory-only text never on disk, no networking outside the updater, no unexpected native calls | everywhere |
 | Update | SemVer order, asset choice, `SHA256SUMS.txt` and release JSON parsing, downloads against a fake GitHub (hash/size mismatch, foreign redirects, rate limit, offline), EXE swap and rollback on temp files | everywhere |
@@ -107,3 +134,4 @@ The published EXE is additionally run with `--selftest` in CI on x64 and ARM64.
 | 14 | **Exit on WM_QUERYENDSESSION** | WPF calls `Shutdown()` when `SessionEnding` is not cancelled, and cancelling would block logoff (or get the background app killed). Every capture is already committed, so the app closes its services in a bounded time there; if the user aborts the shutdown, the app starts again at the next sign-in | wait for WM_ENDSESSION |
 | 15 | **No initial capture at startup** | content copied while the app was not running (possibly during a pause or an "ignore next copy" of an earlier run) is not recorded | read the clipboard once at start |
 | 16 | **Updates only on an explicit click, swapped in place** | the privacy promise allows network access only when the user asks for it, and then only to GitHub; one EXE without an installer updates without admin rights: the running EXE can be renamed but not overwritten, so it moves to `*.old` and the verified download takes its path – autostart entry and shortcuts stay valid, settings and history live in `%LOCALAPPDATA%`. `--updated-from <pid>` is a contract every later version must keep, or an update would leave no instance running | automatic or periodic checks, a separate updater EXE, MSIX/winget, an elevated installer |
+| 17 | **Quiet autostart** (below-normal priority, optional work and notices deferred) | sign-in is when every startup app competes for CPU and disk; in the first minute only capture and the hotkey matter, and a toast or window at login is noise | Task Scheduler with a start delay (hidden from users), a fixed sleep before starting (hotkey and capture would be missing), full start at normal priority |

@@ -200,13 +200,21 @@ shape – use *pause* or *ignore next copy* for those. Details: [docs/privacy.md
   </picture>
 </p>
 
-Start with Windows · Start menu entry · record on/off · language · shortcut recorder (rejects
+Start with Windows (with a shortcut to the Windows startup-apps page) · Start menu entry · record on/off · language · shortcut recorder (rejects
 combinations that would break copy/paste) · maximum entries (25 – 5,000) · memory-only history ·
 clear history · detected-credential filter · screen-capture hiding · excluded apps (with "last
 ignored" status) · theme · check for updates · open data folder · licenses · remove everything.
 
-Autostart uses the regular per-user *Run* entry, so it also shows up – and can be turned off – in
-Task Manager → Startup apps. The app never re-enables it behind your back.
+**Start with Windows** is on after the first start from a permanent folder (Downloads and Desktop
+count; a ZIP opened in Explorer, `%TEMP%`, USB sticks and network shares do not, because the EXE
+would soon be gone). It uses the regular per-user *Run* entry, so it shows up as *Clipboard
+Manager* – and can be turned off – in Settings → Apps → Startup and Task Manager → Startup apps as
+well as in the app's own settings. The app never re-enables it behind your back.
+
+At sign-in the app starts quietly: no window, no notification, no focus change. Clipboard capture
+and the shortcut work immediately; for the first 45 seconds (or until you first open the app) it
+runs at below-normal priority and leaves the rest of its warm-up for later, so it does not slow
+down your login. Notices from that phase wait until you first open the history or the tray menu.
 
 ## Performance
 
