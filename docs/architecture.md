@@ -72,7 +72,8 @@ Three execution contexts, all idle without CPU load:
 **Quiet start.** With `--autostart` (the Run entry's command), `StartupWarmup` holds step 4 back
 for one 45-second one-shot `DispatcherTimer`, lowers the process to `BelowNormal` until then and
 restores `Normal` afterwards (a priority set by someone else is left alone). Notices raised in that
-phase (store recovery, hotkey taken) wait until the user first opens the popup or the tray menu.
+phase (store recovery, hotkey taken) wait until the user first opens the popup or the tray menu,
+at the latest until the delay ends. The priority is lowered only after capture, hotkey and tray icon are up.
 No window is shown and nothing is activated. Capture and the hotkey work from the first second;
 pressing the hotkey, clicking the tray icon or starting the EXE again ends the quiet phase at once
 (the popup opens directly, the pre-warm is then no longer needed).

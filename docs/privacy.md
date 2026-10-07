@@ -54,6 +54,8 @@ request to `api.github.com` for the latest release; *Install update* then downlo
   download, GitHub sees your IP address and that version.
 - Only HTTPS to the hosts above is allowed; redirects are followed one by one and anything else is
   refused before it is contacted.
+- The Windows proxy settings are honored, so updates also work on company networks. A configured
+  proxy (or one found through automatic proxy detection) therefore sees these requests too.
 - The download is kept only if its size and SHA-256 match the release; otherwise it is deleted.
 
 ## Guarantees checked by automated tests

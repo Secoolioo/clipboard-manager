@@ -43,7 +43,16 @@ public sealed class ExeSwap
         }
         catch (Exception ex) when (IsFileError(ex))
         {
-            Retry(() => File.Move(OldPath, ExePath));
+            try
+            {
+                Retry(() => File.Move(OldPath, ExePath));
+            }
+            catch (Exception rollback) when (IsFileError(rollback))
+            {
+                // Some EXE must stay at the path (autostart, shortcuts): the verified new one will do.
+                Retry(() => File.Move(NewPath, ExePath));
+            }
+
             throw;
         }
     }

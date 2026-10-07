@@ -13,7 +13,8 @@ internal readonly record struct TrayNotice(string Title, string Text, bool Warni
 /// work that only makes the app nicer (popup pre-warming, cleanup) waits for one one-shot delay or
 /// until the user first opens the app, whichever comes first. Until then the process runs below
 /// normal priority, and notices raised meanwhile wait until the user first opens the popup or the
-/// tray menu instead of popping up at sign-in. A manual start runs everything immediately.
+/// tray menu (at the latest when the delay ends) instead of popping up at sign-in. A manual start
+/// runs everything immediately.
 /// </summary>
 internal sealed class StartupWarmup : IDisposable
 {
@@ -28,28 +29,40 @@ internal sealed class StartupWarmup : IDisposable
     private readonly List<Action> _deferred = [];
     private readonly List<TrayNotice> _held = [];
     private IDisposable? _timer;
+    private bool _quiet;
     private bool _lowered;
 
     public StartupWarmup(bool quiet, Action<TrayNotice> notify, FileLog log, Platform? platform = null)
     {
+        _quiet = quiet;
         _notify = notify;
         _log = log;
         _platform = platform ?? Platform.Default;
-        if (quiet)
-        {
-            LowerPriority();
-            _timer = _platform.StartTimer(QuietPeriod, () => Finish("delay elapsed"));
-            _log.Info(Category, $"Quiet start: warm-up deferred for {QuietPeriod.TotalSeconds:F0} s");
-        }
     }
 
     /// <summary>True until the delay ended or the user first opened the app.</summary>
-    public bool IsQuiet => _timer is not null;
+    public bool IsQuiet => _quiet;
+
+    /// <summary>
+    /// Starts the delay and lowers the priority. Called once capture, hotkey and tray icon are up,
+    /// so the parts that make the app reachable do not start starved.
+    /// </summary>
+    public void Begin()
+    {
+        if (!_quiet || _timer is not null)
+        {
+            return;
+        }
+
+        LowerPriority();
+        _timer = _platform.StartTimer(QuietPeriod, () => Finish("delay elapsed"));
+        _log.Info(Category, $"Quiet start: warm-up deferred for {QuietPeriod.TotalSeconds:F0} s");
+    }
 
     /// <summary>Runs <paramref name="work"/> now, or once at the end of the quiet phase (queued twice, it still runs once).</summary>
     public void Defer(Action work)
     {
-        if (_timer is null)
+        if (!_quiet)
         {
             work();
         }
@@ -62,7 +75,7 @@ internal sealed class StartupWarmup : IDisposable
     /// <summary>Shows a notice now; one raised during the quiet phase waits until the user first opens the app.</summary>
     public void Notify(TrayNotice notice)
     {
-        if (_timer is not null)
+        if (_quiet)
         {
             _held.Add(notice);
         }
@@ -73,24 +86,11 @@ internal sealed class StartupWarmup : IDisposable
     }
 
     /// <summary>The user opened the popup or the tray menu: finish the warm-up now and show held notices.</summary>
-    public void UserEngaged()
-    {
-        Finish("opened by the user");
-        if (_held.Count == 0)
-        {
-            return;
-        }
-
-        var held = _held.ToArray();
-        _held.Clear();
-        foreach (var notice in held)
-        {
-            _notify(notice);
-        }
-    }
+    public void UserEngaged() => Finish("opened by the user");
 
     public void Dispose()
     {
+        _quiet = false;
         _timer?.Dispose();
         _timer = null;
         _deferred.Clear();
@@ -99,12 +99,13 @@ internal sealed class StartupWarmup : IDisposable
 
     private void Finish(string reason)
     {
-        if (_timer is null)
+        if (!_quiet)
         {
             return;
         }
 
-        _timer.Dispose();
+        _quiet = false;
+        _timer?.Dispose();
         _timer = null;
         RestorePriority();
         _log.Info(Category, $"Quiet phase ended ({reason})");
@@ -114,6 +115,15 @@ internal sealed class StartupWarmup : IDisposable
         foreach (var item in work)
         {
             item();
+        }
+
+        // Held notices (e.g. "shortcut taken") must not wait forever: the user may rely on exactly
+        // the shortcut that did not work. 45 s after sign-in is no longer "at login".
+        var held = _held.ToArray();
+        _held.Clear();
+        foreach (var notice in held)
+        {
+            _notify(notice);
         }
     }
 

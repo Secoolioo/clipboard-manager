@@ -214,7 +214,8 @@ well as in the app's own settings. The app never re-enables it behind your back.
 At sign-in the app starts quietly: no window, no notification, no focus change. Clipboard capture
 and the shortcut work immediately; for the first 45 seconds (or until you first open the app) it
 runs at below-normal priority and leaves the rest of its warm-up for later, so it does not slow
-down your login. Notices from that phase wait until you first open the history or the tray menu.
+down your login. Notices from that phase wait until you first open the history or the tray menu
+(at most 45 seconds).
 
 ## Performance
 

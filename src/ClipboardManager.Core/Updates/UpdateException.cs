@@ -21,7 +21,7 @@ public enum UpdateError
     /// <summary>The EXE folder cannot be written without administrator rights (e.g. Program Files).</summary>
     NotWritable,
 
-    /// <summary>This copy cannot replace itself (a development build, or an architecture without a release EXE).</summary>
+    /// <summary>This copy cannot replace itself (a framework-dependent development build).</summary>
     Unsupported,
 
     /// <summary>Swapping or starting the new EXE failed; the previous version is kept.</summary>

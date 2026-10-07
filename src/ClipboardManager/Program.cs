@@ -25,7 +25,16 @@ internal static class Program
                     SingleInstance.WaitForExit(previous, TimeSpan.FromSeconds(20));
                 }
 
-                switch (SingleInstance.Acquire())
+                var role = SingleInstance.Acquire();
+                for (var attempt = 0; options.UpdatedFrom is not null && role == InstanceRole.Secondary && attempt < 40; attempt++)
+                {
+                    // The previous version can take a little longer to let go (store flush, a slow
+                    // clipboard read). Leaving now would end with no instance running at all.
+                    Thread.Sleep(250);
+                    role = SingleInstance.Acquire();
+                }
+
+                switch (role)
                 {
                     case InstanceRole.Secondary:
                         // A manual start opens the running instance's popup; an autostart or update duplicate just leaves.

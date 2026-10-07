@@ -13,7 +13,33 @@ public sealed class StartupWarmupTests
     private readonly FakePlatform _platform = new();
     private readonly List<TrayNotice> _shown = [];
 
-    private StartupWarmup Create(bool quiet) => new(quiet, _shown.Add, FileLog.Null, _platform.Create());
+    /// <summary>Like the app: created first, started once capture, hotkey and tray are up.</summary>
+    private StartupWarmup Create(bool quiet)
+    {
+        var warmup = new StartupWarmup(quiet, _shown.Add, FileLog.Null, _platform.Create());
+        warmup.Begin();
+        return warmup;
+    }
+
+    [Fact]
+    public void The_priority_is_lowered_only_when_the_quiet_phase_begins()
+    {
+        using var warmup = new StartupWarmup(quiet: true, _shown.Add, FileLog.Null, _platform.Create());
+        var runs = 0;
+        warmup.Defer(() => runs++);
+
+        // Startup itself (settings, host window, hotkey, tray, capture) runs at normal priority.
+        Assert.True(warmup.IsQuiet);
+        Assert.Equal(0, runs);
+        Assert.Equal(ProcessPriorityClass.Normal, _platform.Priority);
+        Assert.Empty(_platform.Timers);
+
+        warmup.Begin();
+        warmup.Begin();
+
+        Assert.Equal(ProcessPriorityClass.BelowNormal, _platform.Priority);
+        Assert.Single(_platform.Timers);
+    }
 
     [Fact]
     public void Manual_start_runs_work_and_shows_notices_immediately()
@@ -81,20 +107,29 @@ public sealed class StartupWarmupTests
     {
         using var warmup = Create(quiet: true);
         warmup.Notify(Notice);
-
-        _platform.Timers[0].Elapsed();
         Assert.Empty(_shown);
 
-        // After the quiet phase a new notice is shown right away; held ones still wait for the user.
+        warmup.UserEngaged();
+        Assert.Equal([Notice], _shown);
+
+        warmup.UserEngaged();
+        Assert.Single(_shown);
+    }
+
+    [Fact]
+    public void Held_notices_are_shown_when_the_delay_ends_at_the_latest()
+    {
+        using var warmup = Create(quiet: true);
+        warmup.Notify(Notice);
+
+        _platform.Timers[0].Elapsed();
+        Assert.Equal([Notice], _shown);
+
+        // After the quiet phase a new notice is shown right away, and nothing is shown twice.
         var later = Notice with { Text = "later" };
         warmup.Notify(later);
-        Assert.Equal([later], _shown);
-
         warmup.UserEngaged();
-        Assert.Equal([later, Notice], _shown);
-
-        warmup.UserEngaged();
-        Assert.Equal(2, _shown.Count);
+        Assert.Equal([Notice, later], _shown);
     }
 
     [Fact]

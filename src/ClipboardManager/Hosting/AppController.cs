@@ -52,6 +52,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
     private readonly Queue<long> _popupRebuilds = new();
     private DispatcherTimer? _environmentPrewarm;
     private bool _discardMemoryEntriesOnPersist;
+    private bool _installing;
     private bool _stopped;
 
     public AppController(App app, StartupOptions options)
@@ -117,15 +118,16 @@ internal sealed class AppController : ISettingsHost, IDisposable
         {
             if (id == HotkeyRegistration.HotkeyId)
             {
-                // Show first: the foreground right ends with the next input.
-                _popup.Toggle(PopupSource.Hotkey);
+                // Normal priority before the (possibly cold) first open; both are cheap and synchronous,
+                // so the popup still takes the foreground before the next input.
                 _warmup.UserEngaged();
+                _popup.Toggle(PopupSource.Hotkey);
             }
         };
         _host.ActivateRequested += (_, _) =>
         {
-            _popup.Show(PopupSource.SecondInstance);
             _warmup.UserEngaged();
+            _popup.Show(PopupSource.SecondInstance);
         };
         _host.TrayActivity += OnTray;
         _host.SettingChanged += OnSettingChanged;
@@ -140,6 +142,9 @@ internal sealed class AppController : ISettingsHost, IDisposable
         CreatePopup();
         _warmup.Defer(SchedulePrewarm);
         UpdateStatus();
+
+        // Reachable now (capture, hotkey, tray): only from here on may the quiet start slow down.
+        _warmup.Begin();
 
         _log.Info(Category, $"Started in {Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0} ms (process age {(DateTime.Now - Process.GetCurrentProcess().StartTime).TotalMilliseconds:F0} ms)");
 
@@ -419,12 +424,12 @@ internal sealed class AppController : ISettingsHost, IDisposable
         switch (e.Code)
         {
             case Shell32.NIN_SELECT or Shell32.NIN_KEYSELECT:
+                _warmup.UserEngaged();
                 if (!_popup.IsOpen && !_popup.RecentlyHidden)
                 {
                     _popup.Show(PopupSource.Tray);
                 }
 
-                _warmup.UserEngaged();
                 break;
             case User32.WM_CONTEXTMENU:
                 _popup.Close(restoreFocus: false);
@@ -669,26 +674,44 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
     public void OpenUrl(string url)
     {
-        // Opens the user's browser on an explicit click.
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
+        // Opens the user's browser (or a Settings page) on an explicit click. Policies can block
+        // the Settings app or the handler may be missing; that must not count as an app error.
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            _log.Warning(Category, "Could not open a link", ex);
+        }
     }
 
     public async Task<UpdateOffer?> CheckForUpdatesAsync(CancellationToken cancellationToken)
     {
+        // Off the UI thread: the first request resolves the system proxy (WPAD) synchronously.
         using var updates = CreateUpdateService();
-        return await updates.CheckAsync(cancellationToken).ConfigureAwait(true);
+        return await Task.Run(() => updates.CheckAsync(cancellationToken), cancellationToken).ConfigureAwait(true);
     }
 
     public async Task DownloadUpdateAsync(UpdateOffer offer, IProgress<int> progress, CancellationToken cancellationToken)
     {
         using var updates = CreateUpdateService();
-        await updates.DownloadAsync(offer, progress, cancellationToken).ConfigureAwait(true);
+        await Task.Run(() => updates.DownloadAsync(offer, progress, cancellationToken), cancellationToken).ConfigureAwait(true);
     }
 
     public async Task InstallUpdateAsync()
     {
         // Settings and history live in the data folder, not next to the EXE: the new version just uses them.
-        await SelfUpdate.RestartIntoNewVersionAsync(ExePath, _log).ConfigureAwait(true);
+        _installing = true;
+        try
+        {
+            await SelfUpdate.RestartIntoNewVersionAsync(ExePath, _log).ConfigureAwait(true);
+        }
+        finally
+        {
+            _installing = false;
+        }
+
         Exit();
     }
 
@@ -724,6 +747,11 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
     public void RemoveEverything(Window owner)
     {
+        if (_installing)
+        {
+            return;
+        }
+
         if (ConfirmDialog.Ask(Strings.RemoveAllTitle, Strings.RemoveAllMessage, Strings.RemoveAllConfirm, owner: owner) is null)
         {
             return;
@@ -733,6 +761,9 @@ internal sealed class AppController : ISettingsHost, IDisposable
         _welcomeWindow?.Close();
         _autostart.RemoveAll();
         _startMenu.Remove();
+        var swap = new ExeSwap(ExePath);
+        swap.TryDiscardDownload();
+        swap.TryDeleteOld();
         try
         {
             Directory.Delete(_options.Paths.DataDirectory, recursive: true);
@@ -775,6 +806,14 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
     public void Exit()
     {
+        if (_installing)
+        {
+            // The EXE is being swapped; the app exits by itself in a moment. Leaving now could
+            // end between the two renames and leave no EXE at the autostart path.
+            _log.Info(Category, "Exit ignored while an update is installing");
+            return;
+        }
+
         StopServices(TimeSpan.FromSeconds(3));
         _app.Shutdown();
     }

@@ -481,6 +481,9 @@ internal sealed partial class SettingsWindow : Window
         try
         {
             await _host.DownloadUpdateAsync(offer, progress, cancellation.Token).ConfigureAwait(true);
+
+            // The window may have been closed to abort while the download finished.
+            cancellation.Token.ThrowIfCancellationRequested();
             ShowUpdate(Strings.UpdateInstalling, UpdateStep.Busy);
             await _host.InstallUpdateAsync().ConfigureAwait(true);
         }

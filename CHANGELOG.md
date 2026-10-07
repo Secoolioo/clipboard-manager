@@ -22,7 +22,8 @@ All notable changes to this project are documented here. The format follows
 - Quiet start at sign-in: when Windows starts the app, it shows no window or notification and
   never takes the focus. Clipboard capture and the shortcut work immediately; for 45 seconds (or
   until the app is first opened) it runs at below-normal priority and defers popup pre-warming and
-  cleanup. Notices from that phase appear when the history or the tray menu is first opened.
+  cleanup. Notices from that phase appear when the history or the tray menu is first opened, at
+  the latest after those 45 seconds.
 - Windows lists the app as "Clipboard Manager" (instead of "ClipboardManager") in Startup apps,
   Task Manager and on notifications.
 - Settings: a link next to "Start with Windows" opens the Windows startup-apps page, where the same
