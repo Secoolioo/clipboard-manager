@@ -1,7 +1,8 @@
 # Release process
 
 1. Update `CHANGELOG.md`: move *Unreleased* entries under a new `## [x.y.z] - YYYY-MM-DD` heading
-   and update the compare links.
+   and update the compare links. Update the version on the website as well: the download button
+   and `softwareVersion` in [`site/index.html`](../site/index.html).
 2. Run the manual checks in [manual-test-checklist.md](manual-test-checklist.md) on the CI artifact
    of the release commit.
 3. Tag the commit on `main` and push the tag:

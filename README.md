@@ -19,6 +19,7 @@ Copy as usual. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>. Find anythin
 <sub>Free &amp; open source · one portable EXE, no installer, no admin rights · Windows 10 / 11 · x64 + ARM64 · updates in one click</sub>
 
 [**⬇ Download for Windows**](https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager.exe) ·
+[Website](https://secoolioo.github.io/clipboard-manager/) ·
 [Features](#features) ·
 [Shortcuts](#keyboard-first) ·
 [Privacy](#privacy) ·

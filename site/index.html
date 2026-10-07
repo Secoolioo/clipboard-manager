@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>Clipboard Manager for Windows – Free Win+V Alternative</title>
+<meta name="description" content="Free, open-source clipboard history for Windows 11 and 10. Press Ctrl+Shift+V, search everything you copied, press Enter. Local only, no telemetry.">
+<link rel="canonical" href="https://secoolioo.github.io/clipboard-manager/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#0B1512">
+<meta name="color-scheme" content="dark">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/brand/logo-512.png">
+<link rel="apple-touch-icon" href="assets/brand/logo-512.png">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Clipboard Manager">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://secoolioo.github.io/clipboard-manager/">
+<meta property="og:title" content="Clipboard Manager for Windows – Free Win+V Alternative">
+<meta property="og:description" content="Everything you copied, one shortcut away: Ctrl+Shift+V, type, Enter. Free and open source, local only, no telemetry. One portable EXE for Windows 10 and 11.">
+<meta property="og:image" content="https://secoolioo.github.io/clipboard-manager/assets/brand/social-preview.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Clipboard Manager for Windows 10 and 11: the history window with pinned entries and instant search.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Clipboard Manager for Windows – Free Win+V Alternative">
+<meta name="twitter:description" content="Everything you copied, one shortcut away: Ctrl+Shift+V, type, Enter. Free and open source, local only, no telemetry.">
+<meta name="twitter:image" content="https://secoolioo.github.io/clipboard-manager/assets/brand/social-preview.png">
+<meta name="twitter:image:alt" content="Clipboard Manager for Windows 10 and 11: the history window with pinned entries and instant search.">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Clipboard Manager",
+  "alternateName": "Clipboard Manager for Windows",
+  "description": "A fast, private clipboard history for Windows 10 and 11. Press Ctrl+Shift+V, type a few letters and press Enter to get back anything you copied, even after a reboot.",
+  "url": "https://secoolioo.github.io/clipboard-manager/",
+  "image": "https://secoolioo.github.io/clipboard-manager/assets/brand/logo-512.png",
+  "screenshot": "https://secoolioo.github.io/clipboard-manager/assets/readme/popup-dark.png",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Windows 10, Windows 11",
+  "processorRequirements": "x64 or ARM64",
+  "softwareVersion": "0.10.1",
+  "downloadUrl": "https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager.exe",
+  "releaseNotes": "https://github.com/Secoolioo/clipboard-manager/blob/main/CHANGELOG.md",
+  "license": "https://spdx.org/licenses/GPL-3.0-or-later.html",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "featureList": [
+    "Clipboard history with up to 5,000 entries that survives a reboot",
+    "Instant search as you type",
+    "Pinned snippets",
+    "Keyboard-first: Ctrl+Shift+V, type, Enter",
+    "Local only: no account, no cloud, no telemetry",
+    "Respects the “do not record” markers of password managers",
+    "Pause recording or ignore the next copy",
+    "One portable EXE, no installer, no admin rights",
+    "One-click verified updates"
+  ],
+  "author": {
+    "@type": "Person",
+    "name": "Secoolioo",
+    "url": "https://github.com/Secoolioo"
+  },
+  "sameAs": [
+    "https://github.com/Secoolioo/clipboard-manager"
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Windows SmartScreen says “Windows protected your PC”. Is the download safe?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Early releases are not code-signed yet, so SmartScreen may warn about a new download. Click More info, then Run anyway. Every release is built in public on GitHub Actions and publishes SHA-256 hashes and a build attestation that you can check with gh attestation verify ClipboardManager.exe --repo Secoolioo/clipboard-manager. On PCs with Smart App Control turned on, unsigned apps cannot start at all; code signing is planned."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Clipboard Manager really free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. It is free and open-source software under the GNU GPL v3.0 or later: no ads, no account, no trial and no paid edition. If it saves you time, you can support the project with an optional tip."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it upload my clipboard or send any data?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Your history stays in a database on your PC. The app makes no network connections at all unless you click Check for updates, and then it contacts only GitHub and sends nothing about you or your clipboard. There is no telemetry, and an automated test fails the build if networking code appears anywhere outside the updater."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I update to a new version?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Open Settings → About → Check for updates (or Check for updates… in the tray menu). If a newer release exists, Install update downloads it, accepts it only if its size and SHA-256 match the release, replaces the EXE in place and restarts the app. Settings, history and pins are kept. You can also exit the app and replace the EXE with a fresh download."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I uninstall Clipboard Manager?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Open Settings → About → Remove everything. It deletes your history, settings, logs, the autostart entry and the Start menu shortcut, then exits. Afterwards delete ClipboardManager.exe. Only the runtime files the EXE extracted to %TEMP%\\.net\\ClipboardManager remain, and you can delete that folder too."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it support images, files or formatted text?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Not yet: Clipboard Manager keeps text only for now. Copying images and files still works exactly as before; they are just not added to the history. If you need them, tell us in GitHub Discussions."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I keep using Win+V?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Clipboard Manager does not change or disable the Windows clipboard history, so both work side by side. It opens with Ctrl+Shift+V by default, because Windows keeps Win+V for itself. You can pick another shortcut in Settings, and if Ctrl+Shift+V is already taken when the app starts, it falls back to Win+Alt+V and tells you."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it run on Windows 10 and on ARM PCs?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Windows 11 is fully supported and Windows 10 22H2 works on a best-effort basis. There are native builds for x64 and ARM64. No .NET installation, no installer and no administrator rights are needed."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is the EXE so large?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The EXE is about 140 MB because it contains the complete .NET runtime. In exchange it needs no installation and uses only about 35 MB of memory and practically no CPU while it waits in the background."
+      }
+    }
+  ]
+}
+</script>
+
+<style>
+:root {
+  --bg: #0B1512;
+  --bg-deep: #07100D;
+  --surface: #0F1F1A;
+  --surface-2: #132822;
+  --line: rgba(77, 227, 160, .16);
+  --line-strong: rgba(77, 227, 160, .34);
+  --text: #E8F6EF;
+  --muted: #A9C4B8;
+  --accent: #4DE3A0;
+  --accent-2: #16D67A;
+  --ink: #03130B;
+  --radius: 16px;
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition: none !important; } }
+body {
+  margin: 0;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(60rem 36rem at 12% -6rem, rgba(22, 214, 122, .20), transparent 70%),
+    radial-gradient(48rem 30rem at 100% 22rem, rgba(14, 165, 164, .12), transparent 70%),
+    linear-gradient(rgba(77, 227, 160, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(77, 227, 160, .045) 1px, transparent 1px);
+  background-size: auto, auto, 40px 40px, 40px 40px;
+  background-repeat: no-repeat, no-repeat, repeat, repeat;
+  color: var(--text);
+  font: 400 1.0625rem/1.65 var(--font);
+  overflow-wrap: break-word;
+}
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--accent); text-underline-offset: .18em; }
+a:hover { color: #7BF0BC; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; margin: 0 0 .5em; letter-spacing: -.015em; }
+h2 { font-size: clamp(1.75rem, 3.6vw, 2.5rem); font-weight: 750; }
+h3 { font-size: 1.15rem; font-weight: 650; }
+p { margin: 0 0 1em; }
+kbd {
+  display: inline-block;
+  min-width: 1.9em;
+  padding: .08em .5em .12em;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 3px;
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: 600 .86em/1.4 var(--font);
+  text-align: center;
+  white-space: nowrap;
+}
+code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: .05em .4em; overflow-wrap: anywhere; }
+.wrap { width: 100%; max-width: 1160px; margin: 0 auto; padding: 0 20px; }
+.skip { position: absolute; left: 12px; top: -60px; z-index: 10; padding: .6em 1em; border-radius: 10px; background: var(--accent); color: var(--ink); font-weight: 700; }
+.skip:focus { top: 12px; color: var(--ink); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.icon { width: 1.25em; height: 1.25em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon-fill { fill: currentColor; stroke: none; }
+
+/* Header */
+.site-header { padding: 18px 0; }
+.site-header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 700; font-size: 1.08rem; }
+.brand img { width: 34px; height: 34px; }
+.brand:hover { color: var(--text); }
+.site-nav ul { display: flex; flex-wrap: wrap; gap: 4px 22px; margin: 0; padding: 0; list-style: none; }
+.site-nav a { color: var(--muted); text-decoration: none; font-size: .96rem; font-weight: 500; }
+.site-nav a:hover { color: var(--text); }
+.site-nav .nav-gh { color: var(--accent); }
+
+/* Hero */
+.hero { padding: 36px 0 72px; text-align: center; }
+.hero-copy { max-width: 1060px; margin: 0 auto; }
+.eyebrow { display: inline-block; margin: 0 0 22px; padding: 6px 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: rgba(22, 214, 122, .08); color: var(--accent); font-size: .9rem; font-weight: 600; }
+.eyebrow .dot { display: inline-block; width: 8px; height: 8px; margin-right: 9px; vertical-align: .08em; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 4px rgba(22, 214, 122, .2); }
+h1 { font-size: clamp(2.25rem, 5.4vw, 4rem); font-weight: 800; letter-spacing: -.025em; margin-bottom: 22px; }
+h1 .accent { display: block; background: linear-gradient(100deg, var(--accent) 10%, var(--accent-2) 55%, #2BD9C4 100%); -webkit-background-clip: text; background-clip: text; color: var(--accent); -webkit-text-fill-color: transparent; }
+@media (forced-colors: active) { h1 .accent { background: none; -webkit-text-fill-color: currentColor; } }
+.lead { font-size: clamp(1.1rem, 1.6vw, 1.28rem); color: var(--muted); max-width: 38em; margin: 0 auto 20px; }
+.lead strong { color: var(--text); font-weight: 600; }
+.combo { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 10px; margin: 0 0 32px; color: var(--muted); font-size: 1.02rem; }
+.combo > span { white-space: nowrap; }
+.combo kbd { font-size: 1rem; }
+.combo .arrow { margin-right: .35em; color: var(--accent); font-weight: 700; }
+.cta { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px 16px; }
+.btn-download {
+  display: inline-flex; align-items: center; gap: 14px;
+  padding: 16px 28px 16px 22px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  color: var(--ink);
+  text-decoration: none;
+  box-shadow: 0 10px 34px rgba(22, 214, 122, .34), inset 0 1px 0 rgba(255, 255, 255, .35);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.btn-download:hover { color: var(--ink); transform: translateY(-2px); box-shadow: 0 16px 44px rgba(22, 214, 122, .45), inset 0 1px 0 rgba(255, 255, 255, .35); }
+.btn-download .icon { width: 30px; height: 30px; }
+.btn-download .label { display: flex; flex-direction: column; line-height: 1.25; }
+.btn-download .label strong { font-size: 1.2rem; font-weight: 750; }
+.btn-download .label span { font-size: .86rem; font-weight: 600; opacity: .82; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: rgba(15, 31, 26, .7);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.btn:hover { color: var(--text); border-color: var(--accent); background: var(--surface-2); }
+.btn .star { color: #FFD166; }
+.alt-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; margin: 18px 0 0; padding: 0; list-style: none; font-size: .95rem; }
+.alt-links a { color: var(--muted); }
+.alt-links a:hover { color: var(--text); }
+.trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; margin: 24px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: .95rem; }
+.trust li { display: inline-flex; align-items: center; gap: 7px; }
+.trust .icon { color: var(--accent); width: 1.1em; height: 1.1em; }
+.shot {
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #0B1218;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .5), 0 0 0 8px rgba(22, 214, 122, .05), 0 0 90px rgba(22, 214, 122, .14);
+}
+.shot img { width: 100%; }
+.hero-media { max-width: 900px; margin: 56px auto 0; }
+.hero-media figcaption { margin-top: 14px; color: var(--muted); font-size: .92rem; }
+
+/* Sections */
+section { padding: 72px 0; }
+.section-head { max-width: 46rem; margin: 0 auto 40px; text-align: center; }
+.section-head p { color: var(--muted); font-size: 1.1rem; margin: 0; }
+.kicker { display: block; margin-bottom: 10px; color: var(--accent); font-size: .85rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.band { background: linear-gradient(180deg, rgba(15, 31, 26, .0), rgba(15, 31, 26, .75) 18%, rgba(15, 31, 26, .75) 82%, rgba(15, 31, 26, 0)); }
+.card { padding: 26px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(15, 31, 26, .82); }
+
+/* Steps */
+.steps { display: grid; gap: 18px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+@media (min-width: 760px) { .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.steps li { position: relative; counter-increment: step; }
+.steps li::before {
+  content: counter(step);
+  display: grid; place-items: center;
+  width: 40px; height: 40px; margin-bottom: 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: var(--ink);
+  font-weight: 800;
+}
+.steps h3 { margin-bottom: .4em; }
+.steps p { margin: 0; color: var(--muted); }
+.tip { max-width: 46rem; margin: 26px auto 0; color: var(--muted); text-align: center; }
+
+/* Features */
+.features { display: grid; gap: 18px; margin: 0; padding: 0; list-style: none; }
+@media (min-width: 640px) { .features { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1040px) { .features { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.features li { transition: border-color .15s ease, transform .15s ease; }
+.features li:hover { border-color: var(--line-strong); transform: translateY(-2px); }
+.features .icon-box { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 16px; border: 1px solid var(--line-strong); border-radius: 12px; background: rgba(22, 214, 122, .1); color: var(--accent); }
+.features .icon-box .icon { width: 22px; height: 22px; }
+.features p { margin: 0; color: var(--muted); font-size: 1rem; }
+.gallery { display: grid; gap: 24px; margin-top: 48px; }
+@media (min-width: 860px) { .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.gallery figure { margin: 0; }
+.gallery figcaption { margin-top: 4px; color: var(--muted); font-size: .95rem; text-align: center; }
+
+/* Comparison */
+.table-wrap { max-width: 860px; margin: 0 auto; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(15, 31, 26, .82); }
+table { width: 100%; border-collapse: collapse; font-size: 1rem; }
+caption { padding: 16px 20px; color: var(--muted); font-size: .92rem; text-align: left; caption-side: bottom; }
+th, td { padding: 14px 20px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+thead th { color: var(--muted); font-size: .9rem; font-weight: 650; letter-spacing: .02em; }
+thead th.us { color: var(--accent); background: rgba(22, 214, 122, .07); }
+tbody th { font-weight: 600; color: var(--text); white-space: nowrap; }
+tbody td { color: var(--muted); }
+tbody td.us { color: var(--text); font-weight: 600; background: rgba(22, 214, 122, .07); }
+tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+.yes { color: var(--accent); font-weight: 700; }
+.others { max-width: 46rem; margin: 36px auto 0; text-align: center; color: var(--muted); }
+.others h3 { color: var(--text); }
+
+/* Privacy */
+.privacy-grid { display: grid; gap: 22px; }
+@media (min-width: 900px) { .privacy-grid { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); } }
+.checks { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+.checks li { display: flex; gap: 12px; }
+.checks .icon { color: var(--accent); margin-top: .22em; }
+.checks strong { color: var(--text); }
+.checks span { color: var(--muted); }
+.limits h3 { display: flex; align-items: center; gap: 10px; }
+.limits h3 .icon { color: #FFD166; }
+.limits p { color: var(--muted); font-size: 1rem; }
+.limits p:last-child { margin-bottom: 0; }
+
+/* Get started */
+.start-grid { display: grid; gap: 22px; align-items: start; }
+@media (min-width: 900px) { .start-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.howto { margin: 0; padding-left: 1.4em; display: grid; gap: 10px; color: var(--muted); }
+.howto li::marker { color: var(--accent); font-weight: 700; }
+.howto strong { color: var(--text); }
+.note { border-left: 4px solid #FFD166; }
+.note p { color: var(--muted); font-size: 1rem; }
+
+/* FAQ */
+.faq { max-width: 860px; margin: 0 auto; display: grid; gap: 12px; }
+.faq details { border: 1px solid var(--line); border-radius: 14px; background: rgba(15, 31, 26, .82); }
+.faq details[open] { border-color: var(--line-strong); }
+.faq summary { position: relative; padding: 18px 56px 18px 22px; cursor: pointer; list-style: none; font-weight: 650; font-size: 1.06rem; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; position: absolute; right: 22px; top: 50%; transform: translateY(-50%); color: var(--accent); font-size: 1.5rem; font-weight: 500; line-height: 1; }
+.faq details[open] summary::after { content: "\2212"; }
+.faq summary h3 { display: inline; margin: 0; font-size: inherit; font-weight: inherit; letter-spacing: 0; line-height: 1.4; }
+.faq .answer { padding: 0 22px 20px; color: var(--muted); }
+.faq .answer p:last-child { margin-bottom: 0; }
+
+/* Final CTA */
+.final { text-align: center; }
+.final .card { padding: 52px 24px; border-color: var(--line-strong); background: radial-gradient(40rem 18rem at 50% 0, rgba(22, 214, 122, .18), transparent 70%), rgba(15, 31, 26, .9); }
+.final .card img { width: 72px; height: 72px; margin: 0 auto 18px; }
+.final p { color: var(--muted); font-size: 1.1rem; max-width: 34rem; margin: 0 auto 28px; }
+.final .cta { justify-content: center; }
+
+/* Footer */
+.site-footer { padding: 40px 0 56px; border-top: 1px solid var(--line); color: var(--muted); font-size: .95rem; }
+.site-footer .wrap { display: grid; gap: 18px; }
+.site-footer ul { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 0; list-style: none; }
+.site-footer a { color: var(--muted); }
+.site-footer a:hover { color: var(--text); }
+.site-footer p { margin: 0; }
+.no-trackers { display: inline-flex; align-items: center; gap: 8px; color: var(--text); }
+.no-trackers .icon { color: var(--accent); }
+
+@media (max-width: 560px) {
+  section { padding: 56px 0; }
+  .hero { padding-top: 20px; }
+  .site-nav ul { gap: 4px 16px; }
+  .btn-download { width: 100%; justify-content: center; gap: 12px; padding: 14px 16px; }
+  .btn-download .label strong { font-size: 1.12rem; }
+  .btn-download .label span { font-size: .8rem; }
+  .card { padding: 22px; }
+  .final .card { padding: 40px 18px; }
+  table { font-size: .94rem; }
+  th, td { padding: 12px 14px; }
+  tbody th { white-space: normal; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./">
+      <img src="assets/brand/logo-512.png" width="34" height="34" alt="">
+      <span>Clipboard Manager</span>
+    </a>
+    <nav class="site-nav" aria-label="Main">
+      <ul>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#win-v">Why not Win+V?</a></li>
+        <li><a href="#privacy">Privacy</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a class="nav-gh" href="https://github.com/Secoolioo/clipboard-manager">GitHub</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Free &amp; open source · Windows 11 &amp; 10</p>
+        <h1 id="hero-title">Clipboard Manager for Windows <span class="accent">– free Win+V alternative</span></h1>
+        <p class="lead">Never lose something you copied again. <strong>Clipboard Manager</strong> keeps your clipboard history on Windows 11 and Windows 10 – searchable, pinned and still there after a reboot. One portable EXE, no account, no cloud.</p>
+        <p class="combo">
+          <span><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd></span>
+          <span><span class="arrow" aria-hidden="true">→</span><span class="visually-hidden">, then</span> type a few letters</span>
+          <span><span class="arrow" aria-hidden="true">→</span><span class="visually-hidden">, then press</span> <kbd>Enter</kbd></span>
+        </p>
+        <div class="cta">
+          <a class="btn-download" href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager.exe">
+            <svg class="icon icon-fill" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4.6 10.4 3.6v7.1H3zM11.4 3.4 21 2v8.7h-9.6zM3 11.7h7.4v7.1L3 17.8zM11.4 11.7H21V20.6l-9.6-1.4z"/></svg>
+            <span class="label"><strong>Download for Windows</strong><span>Free · x64 · version 0.10.1 · no installer</span></span>
+          </a>
+          <a class="btn" href="https://github.com/Secoolioo/clipboard-manager">
+            <svg class="icon icon-fill" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+        <ul class="alt-links">
+          <li><a href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager-arm64.exe">Download for ARM64</a></li>
+          <li><a href="https://github.com/Secoolioo/clipboard-manager/releases/latest">All downloads &amp; release notes</a></li>
+          <li><a href="https://github.com/Secoolioo/clipboard-manager"><span class="star" aria-hidden="true">★</span> Star on GitHub</a></li>
+        </ul>
+        <ul class="trust">
+          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg>No account</li>
+          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg>No cloud</li>
+          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg>No telemetry</li>
+          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg>No admin rights</li>
+        </ul>
+      </div>
+      <figure class="hero-media">
+        <div class="shot">
+          <picture>
+            <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/popup-dark.png">
+            <img src="assets/readme/demo.gif" width="852" height="552" fetchpriority="high" alt="Clipboard Manager in action: typing “docker” filters the clipboard history instantly, and Enter copies the selected entry.">
+          </picture>
+        </div>
+        <figcaption>Type a few letters – the history filters as you type.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band" id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">How it works</span>
+        <h2 id="how-title">Your clipboard history in three keys</h2>
+        <p>It runs quietly in the notification area and is ready the moment you need it.</p>
+      </div>
+      <ol class="steps">
+        <li class="card">
+          <h3>Copy as usual</h3>
+          <p>Press <kbd>Ctrl</kbd>+<kbd>C</kbd> in any app. Clipboard Manager remembers the text – even across restarts.</p>
+        </li>
+        <li class="card">
+          <h3>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> and type</h3>
+          <p>A small window opens in about 8 ms. A few letters filter your whole history instantly.</p>
+        </li>
+        <li class="card">
+          <h3>Press <kbd>Enter</kbd>, then paste</h3>
+          <p>The entry is back on your clipboard and focus is back in the app you came from, so <kbd>Ctrl</kbd>+<kbd>V</kbd> just works.</p>
+        </li>
+      </ol>
+      <p class="tip">Tip: the window pre-selects the entry <em>before</em> your current one, so <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>, <kbd>Enter</kbd>, <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes your previous copy.</p>
+    </div>
+  </section>
+
+  <section id="features" aria-labelledby="features-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">Features</span>
+        <h2 id="features-title">Everything a clipboard manager needs – nothing you have to configure</h2>
+        <p>Install it once, then forget about it until the moment it saves you.</p>
+      </div>
+      <ul class="features">
+        <li class="card">
+          <div class="icon-box"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div>
+          <h3>Instant</h3>
+          <p>The window is pre-built in the background and opens in about 8 ms. Searching 5,000 entries takes well under a millisecond.</p>
+        </li>
+        <li class="card">
+          <div class="icon-box"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></div>
+          <h3>Keyboard-first</h3>
+          <p>Type to filter, arrows to move, <kbd>Enter</kbd> to copy, <kbd>Esc</kbd> to close. Pin with <kbd>Ctrl</kbd>+<kbd>P</kbd>. No mouse needed.</p>
+        </li>
+        <li class="card">
+          <div class="icon-box"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+          <h3>Survives a reboot</h3>
+          <p>100 entries by default, up to 5,000 – and they are still there after a restart. Win+V keeps 25 and clears the unpinned ones.</p>
+        </li>
+        <li class="card">
+          <div class="icon-box"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 17v5M9 3h6l-1 6 4 4H6l4-4z"/></svg></div>
+          <h3>Pins, no duplicates</h3>
+          <p>Pinned snippets never fall out of the history. Copy something again and it moves to the top instead of adding a second row.</p>
+        </li>
+        <li class="card">
+          <div class="icon-box"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+          <h3>Private by design</h3>
+          <p>Local only. Respects the “do not record” markers of password managers and hides itself from screen sharing.</p>
+        </li>
+        <li class="card">
+          <div class="icon-box"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></div>
+          <h3>Pause anytime</h3>
+          <p>Stop recording for 5, 30 or 60 minutes or until you resume – or ignore just the next copy.</p>
+        </li>
+        <li class="card">
+          <div class="icon-box"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" class="icon-fill"/></svg></div>
+          <h3>Looks like Windows 11</h3>
+          <p>Fluent design in light, dark or system theme, following your accent color. In English and German.</p>
+        </li>
+        <li class="card">
+          <div class="icon-box"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></div>
+          <h3>One EXE, light on resources</h3>
+          <p>No installer, no admin rights, no .NET to install. Idles at about 35 MB and 0.01 % CPU, and updates itself in one click.</p>
+        </li>
+      </ul>
+
+      <div class="gallery">
+        <figure>
+          <picture>
+            <source media="(prefers-color-scheme: light)" srcset="assets/readme/popup-light.png">
+            <img src="assets/readme/popup-dark.png" width="1704" height="1104" loading="lazy" decoding="async" alt="The Clipboard Manager history window with pinned entries, recent history, a preview pane and key hints.">
+          </picture>
+          <figcaption>Pinned snippets on top, recent history below, preview on the right.</figcaption>
+        </figure>
+        <figure>
+          <picture>
+            <source media="(prefers-color-scheme: light)" srcset="assets/readme/search-light.png">
+            <img src="assets/readme/search-dark.png" width="1704" height="1104" loading="lazy" decoding="async" alt="Searching the clipboard history for “docker” highlights every match.">
+          </picture>
+          <figcaption>Every word you type must match – matches are highlighted.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="win-v" aria-labelledby="win-v-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">Comparison</span>
+        <h2 id="win-v-title">Why not just Win+V?</h2>
+        <p>The clipboard history built into Windows 11 is a good start. Clipboard Manager picks up where it stops.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption>App exclusions are best effort: Windows does not always reveal which app copied something.</caption>
+          <thead>
+            <tr>
+              <th scope="col"><span class="visually-hidden">Feature</span></th>
+              <th scope="col">Windows clipboard history (Win+V)</th>
+              <th scope="col" class="us">Clipboard Manager</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Entries</th><td>25</td><td class="us">100 by default, up to 5,000</td></tr>
+            <tr><th scope="row">After a restart</th><td>cleared (except pinned)</td><td class="us"><span class="yes">kept</span></td></tr>
+            <tr><th scope="row">Search</th><td>none</td><td class="us"><span class="yes">instant, as you type</span></td></tr>
+            <tr><th scope="row">Exclude apps</th><td>no</td><td class="us"><span class="yes">yes</span></td></tr>
+            <tr><th scope="row">Password-manager markers</th><td>respected</td><td class="us">respected</td></tr>
+            <tr><th scope="row">Sync to the cloud</th><td>optional</td><td class="us"><span class="yes">never – local only</span></td></tr>
+            <tr><th scope="row">Open source</th><td>no</td><td class="us"><span class="yes">yes, GPL-3.0</span></td></tr>
+            <tr><th scope="row">Images, HTML</th><td>yes</td><td class="us">not yet (text only)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="others">
+        <h3>And Ditto or CopyQ?</h3>
+        <p>Both are excellent and do more – images, sync, scripting, lots of options. Clipboard Manager is deliberately smaller: zero configuration, a window that is ready the moment you press the shortcut, focus that returns to where you were, a modern Windows 11 look and a strict local-only design.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy" aria-labelledby="privacy-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">Privacy</span>
+        <h2 id="privacy-title">Your clipboard never leaves your PC</h2>
+        <p>A clipboard manager sees everything you copy, so privacy is not a feature here – it is the design.</p>
+      </div>
+      <div class="privacy-grid">
+        <div class="card">
+          <h3>What the app guarantees – and tests on every build</h3>
+          <ul class="checks">
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg><div><strong>No network access unless you ask for it.</strong> <span>No telemetry, no automatic update checks, no account. Only a click on <em>Check for updates</em> contacts GitHub, and nothing about you or your clipboard is sent.</span></div></li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg><div><strong>Password managers are respected.</strong> <span>Content marked “do not record” is never read – KeePass, KeePassXC, Bitwarden, Proton Pass and Chrome/Edge password fields set these markers.</span></div></li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg><div><strong>Deleted means deleted.</strong> <span>Deleted entries are overwritten in the database file, not just hidden.</span></div></li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg><div><strong>Logs never contain clipboard content</strong> <span>– not even in error messages – and crash reports contain no memory contents.</span></div></li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg><div><strong>Hidden from screen sharing and recordings</strong> <span>– on by default.</span></div></li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg><div><strong>You stay in control.</strong> <span>Pause, ignore the next copy, exclude apps, keep the history in memory only, skip detected credentials, clear everything.</span></div></li>
+          </ul>
+        </div>
+        <div class="card limits">
+          <h3><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>Honest limits</h3>
+          <p>The history database is stored unencrypted in your user profile, protected by Windows file permissions like any other app data – software running under your account can read it. Use BitLocker for the disk.</p>
+          <p>Passwords cannot be recognized by their shape, so use <em>pause</em> or <em>ignore next copy</em> for those if your password manager does not mark them.</p>
+          <p><a href="https://github.com/Secoolioo/clipboard-manager/blob/main/docs/privacy.md">Read exactly what is stored and where</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="download" aria-labelledby="download-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">Get started</span>
+        <h2 id="download-title">Up and running in 30 seconds</h2>
+        <p>There is nothing to install. Download, double-click, done.</p>
+      </div>
+      <div class="start-grid">
+        <div class="card">
+          <ol class="howto">
+            <li>Download <strong><a href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager.exe">ClipboardManager.exe</a></strong> (or <a href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager-arm64.exe">ClipboardManager-arm64.exe</a> for ARM PCs).</li>
+            <li>Put it in a permanent folder, for example <code>%LOCALAPPDATA%\Programs\ClipboardManager\</code>.</li>
+            <li><strong>Double-click it.</strong> A short welcome window confirms it is running and starts with Windows.</li>
+            <li>Copy something, then press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>.</li>
+          </ol>
+        </div>
+        <div class="card note">
+          <h3>“Windows protected your PC”?</h3>
+          <p>Early releases are not code-signed yet, so SmartScreen may warn you. Click <strong>More info</strong>, then <strong>Run anyway</strong>.</p>
+          <p>Want to be sure? Every release publishes SHA-256 hashes and a GitHub build attestation: <code>gh attestation verify ClipboardManager.exe --repo Secoolioo/clipboard-manager</code></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">FAQ</span>
+        <h2 id="faq-title">Frequently asked questions</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary><h3>Windows SmartScreen says “Windows protected your PC”. Is the download safe?</h3></summary>
+          <div class="answer">
+            <p>Early releases are not code-signed yet, so SmartScreen may warn about a new download. Click <strong>More info</strong>, then <strong>Run anyway</strong>. Every release is built in public on GitHub Actions and publishes SHA-256 hashes and a build attestation that you can check with <code>gh attestation verify ClipboardManager.exe --repo Secoolioo/clipboard-manager</code>. On PCs with Smart App Control turned on, unsigned apps cannot start at all; code signing is <a href="https://github.com/Secoolioo/clipboard-manager/blob/main/CODE_SIGNING_POLICY.md">planned</a>.</p>
+          </div>
+        </details>
+        <details>
+          <summary><h3>Is Clipboard Manager really free?</h3></summary>
+          <div class="answer">
+            <p>Yes. It is free and open-source software under the GNU GPL v3.0 or later: no ads, no account, no trial and no paid edition. If it saves you time, you can support the project with an <a href="https://github.com/Secoolioo/.github/blob/main/DONATE.md">optional tip</a>.</p>
+          </div>
+        </details>
+        <details>
+          <summary><h3>Does it upload my clipboard or send any data?</h3></summary>
+          <div class="answer">
+            <p>No. Your history stays in a database on your PC. The app makes no network connections at all unless you click <em>Check for updates</em>, and then it contacts only GitHub and sends nothing about you or your clipboard. There is no telemetry, and an automated test fails the build if networking code appears anywhere outside the updater.</p>
+          </div>
+        </details>
+        <details>
+          <summary><h3>How do I update to a new version?</h3></summary>
+          <div class="answer">
+            <p>Open <em>Settings → About → Check for updates</em> (or <em>Check for updates…</em> in the tray menu). If a newer release exists, <em>Install update</em> downloads it, accepts it only if its size and SHA-256 match the release, replaces the EXE in place and restarts the app. Settings, history and pins are kept. You can also exit the app and replace the EXE with a fresh download.</p>
+          </div>
+        </details>
+        <details>
+          <summary><h3>How do I uninstall Clipboard Manager?</h3></summary>
+          <div class="answer">
+            <p>Open <em>Settings → About → Remove everything</em>. It deletes your history, settings, logs, the autostart entry and the Start menu shortcut, then exits. Afterwards delete <code>ClipboardManager.exe</code>. Only the runtime files the EXE extracted to <code>%TEMP%\.net\ClipboardManager</code> remain, and you can delete that folder too.</p>
+          </div>
+        </details>
+        <details>
+          <summary><h3>Does it support images, files or formatted text?</h3></summary>
+          <div class="answer">
+            <p>Not yet: Clipboard Manager keeps text only for now. Copying images and files still works exactly as before; they are just not added to the history. If you need them, tell us in <a href="https://github.com/Secoolioo/clipboard-manager/discussions/categories/ideas">GitHub Discussions</a>.</p>
+          </div>
+        </details>
+        <details>
+          <summary><h3>Can I keep using Win+V?</h3></summary>
+          <div class="answer">
+            <p>Yes. Clipboard Manager does not change or disable the Windows clipboard history, so both work side by side. It opens with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> by default, because Windows keeps Win+V for itself. You can pick another shortcut in Settings, and if <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> is already taken when the app starts, it falls back to <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>V</kbd> and tells you.</p>
+          </div>
+        </details>
+        <details>
+          <summary><h3>Does it run on Windows 10 and on ARM PCs?</h3></summary>
+          <div class="answer">
+            <p>Windows 11 is fully supported and Windows 10 22H2 works on a best-effort basis. There are native builds for x64 and ARM64. No .NET installation, no installer and no administrator rights are needed.</p>
+          </div>
+        </details>
+        <details>
+          <summary><h3>Why is the EXE so large?</h3></summary>
+          <div class="answer">
+            <p>The EXE is about 140 MB because it contains the complete .NET runtime. In exchange it needs no installation and uses only about 35 MB of memory and practically no CPU while it waits in the background.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="final" aria-labelledby="final-title">
+    <div class="wrap">
+      <div class="card">
+        <img src="assets/brand/logo-512.png" width="72" height="72" loading="lazy" decoding="async" alt="">
+        <h2 id="final-title">Stop losing what you copied</h2>
+        <p>Free, open source and private. Give it a try – it takes less time than reading this page.</p>
+        <div class="cta">
+          <a class="btn-download" href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager.exe">
+            <svg class="icon icon-fill" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4.6 10.4 3.6v7.1H3zM11.4 3.4 21 2v8.7h-9.6zM3 11.7h7.4v7.1L3 17.8zM11.4 11.7H21V20.6l-9.6-1.4z"/></svg>
+            <span class="label"><strong>Download for Windows</strong><span>Windows 11 &amp; 10 · x64</span></span>
+          </a>
+          <a class="btn" href="https://github.com/Secoolioo/clipboard-manager"><span class="star" aria-hidden="true">★</span> Star on GitHub</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <ul aria-label="Project links">
+      <li><a href="https://github.com/Secoolioo/clipboard-manager">Source code</a></li>
+      <li><a href="https://github.com/Secoolioo/clipboard-manager/releases">Releases</a></li>
+      <li><a href="https://github.com/Secoolioo/clipboard-manager/blob/main/CHANGELOG.md">Changelog</a></li>
+      <li><a href="https://github.com/Secoolioo/clipboard-manager/blob/main/docs/privacy.md">Privacy details</a></li>
+      <li><a href="https://github.com/Secoolioo/clipboard-manager/discussions">Feedback &amp; ideas</a></li>
+      <li><a href="https://github.com/Secoolioo/clipboard-manager/issues/new/choose">Report a bug</a></li>
+      <li><a href="https://github.com/Secoolioo/.github/blob/main/DONATE.md">Donate</a></li>
+    </ul>
+    <p class="no-trackers"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>This page has no cookies, no analytics and no trackers – just like the app.</p>
+    <p>Clipboard Manager is free software under the <a href="https://github.com/Secoolioo/clipboard-manager/blob/main/LICENSE">GNU General Public License v3.0 or later</a>. © 2026 Secoolioo and contributors.</p>
+  </div>
+</footer>
+</body>
+</html>

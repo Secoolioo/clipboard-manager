@@ -8,7 +8,7 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-[*.{json,yml,yaml,props,targets,csproj,xml,xaml,resx,svg}]
+[*.{json,yml,yaml,props,targets,csproj,xml,xaml,resx,svg,html}]
 indent_size = 2
 
 [*.md]
