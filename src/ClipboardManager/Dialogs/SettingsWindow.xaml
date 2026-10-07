@@ -152,6 +152,28 @@
               <TextBlock x:Name="VersionText" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             </StackPanel>
           </StackPanel>
+          <!-- Updates: only on an explicit click; every state is inline text, no extra windows. -->
+          <StackPanel x:Name="UpdatePanel" Margin="0,0,0,12">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Button x:Name="CheckUpdatesButton" Content="{x:Static loc:Strings.CheckForUpdates}" VerticalAlignment="Top" Click="OnCheckForUpdates" />
+              <TextBlock x:Name="UpdateStatus" Grid.Column="1" Margin="12,6,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                         AutomationProperties.LiveSetting="Polite" />
+            </Grid>
+            <ProgressBar x:Name="UpdateProgress" Height="4" Margin="0,10,0,0" Maximum="100" Visibility="Collapsed"
+                         AutomationProperties.Name="{x:Static loc:Strings.UpdateProgress}" />
+            <WrapPanel x:Name="UpdateActions" Margin="0,10,0,0" Visibility="Collapsed">
+              <Button x:Name="InstallUpdateButton" Content="{x:Static loc:Strings.InstallUpdate}" Margin="0,0,8,0"
+                      Style="{DynamicResource AccentButtonStyle}" Click="OnInstallUpdate" />
+              <Button x:Name="CancelUpdateButton" Content="{x:Static loc:Strings.Cancel}" Margin="0,0,8,0" Click="OnCancelUpdate" />
+              <Button x:Name="WhatsNewButton" Content="{x:Static loc:Strings.WhatsNew}" Margin="0,0,8,0" Click="OnWhatsNew" />
+              <Button x:Name="ReleasesPageButton" Content="{x:Static loc:Strings.OpenReleasesPage}" Margin="0,0,8,0" Click="OnReleasesPage" />
+            </WrapPanel>
+            <TextBlock Style="{StaticResource Note}" Margin="0,8,0,0" Text="{x:Static loc:Strings.UpdateNote}" />
+          </StackPanel>
           <TextBlock Text="{x:Static loc:Strings.NoTelemetry}" TextWrapping="Wrap" Margin="0,0,0,6" />
           <TextBlock Text="{x:Static loc:Strings.License}" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,4"
                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />

@@ -12,11 +12,13 @@ using ClipboardManager.Core.Diagnostics;
 using ClipboardManager.Core.History;
 using ClipboardManager.Core.Monitoring;
 using ClipboardManager.Core.Settings;
+using ClipboardManager.Core.Updates;
 using ClipboardManager.Dialogs;
 using ClipboardManager.Interop;
 using ClipboardManager.Localization;
 using ClipboardManager.Popup;
 using ClipboardManager.Shell;
+using ClipboardManager.Updates;
 
 namespace ClipboardManager.Hosting;
 
@@ -138,6 +140,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
         RunFirstStartTasks(hotkeyStatus);
         _ = Task.Run(CleanStaleExtractionFolders);
+        _ = Task.Run(CleanUpdateLeftovers);
     }
 
     // ---- startup helpers -------------------------------------------------------------------
@@ -234,7 +237,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
         var firstRun = !_autostart.FirstRunDone;
         _autostart.RegisterOnFirstRun();
 
-        if (firstRun && !_options.Autostart)
+        if (firstRun && _options.IsManualStart)
         {
             if (!StartMenuShortcut.Exists && !_autostart.IsVolatileLocation)
             {
@@ -245,15 +248,31 @@ internal sealed class AppController : ISettingsHost, IDisposable
             return;
         }
 
-        if (!_options.Autostart)
+        if (_options.IsManualStart)
         {
             _autostart.RepairIfBroken();
 
             // A manual start of an already-configured app means "show me the history".
             _dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => _popup.Show(PopupSource.SecondInstance));
         }
+        else if (_options.UpdatedFrom is not null)
+        {
+            // The EXE kept its path, so the autostart entry needs no repair; just say what happened.
+            _tray.Notify(Strings.AppName, Strings.UpdatedTo(VersionText));
+        }
 
         NotifyHotkey(hotkeyStatus);
+    }
+
+    /// <summary>The previous EXE after an in-app update (it may still be closing), or a download a crash left behind.</summary>
+    private void CleanUpdateLeftovers()
+    {
+        var swap = new ExeSwap(ExePath, _options.UpdatedFrom is null ? 1 : 10, TimeSpan.FromSeconds(1));
+        swap.TryDiscardDownload();
+        if (File.Exists(swap.OldPath) && !swap.TryDeleteOld())
+        {
+            _log.Info(Category, "The previous version's EXE could not be deleted yet");
+        }
     }
 
     private void ShowWelcome()
@@ -431,6 +450,9 @@ internal sealed class AppController : ISettingsHost, IDisposable
             case TrayCommand.Settings:
                 OpenSettings();
                 break;
+            case TrayCommand.CheckForUpdates:
+                OpenSettings(checkForUpdates: true);
+                break;
             case TrayCommand.Exit:
                 Exit();
                 break;
@@ -449,7 +471,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
     // ---- settings --------------------------------------------------------------------------
 
-    private void OpenSettings()
+    private void OpenSettings(bool checkForUpdates = false)
     {
         if (_settingsWindow is null)
         {
@@ -464,6 +486,10 @@ internal sealed class AppController : ISettingsHost, IDisposable
         }
 
         _settingsWindow.Activate();
+        if (checkForUpdates)
+        {
+            _settingsWindow.CheckForUpdates();
+        }
     }
 
     private void OnSettingsChanged(AppSettings previous, AppSettings next)
@@ -616,21 +642,38 @@ internal sealed class AppController : ISettingsHost, IDisposable
 
     public string DataFolder => _options.Paths.DataDirectory;
 
-    public string VersionText
-    {
-        get
-        {
-            var informational = typeof(AppController).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
-            var plus = informational.IndexOf('+', StringComparison.Ordinal);
-            return plus > 0 && informational.Length > plus + 8 ? informational[..(plus + 8)] : informational;
-        }
-    }
+    /// <summary>The informational version without the "+commit" build metadata.</summary>
+    public string VersionText =>
+        (typeof(AppController).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0").Split('+')[0];
 
     public void OpenUrl(string url)
     {
-        // Opens the user's browser on an explicit click; the app itself never connects anywhere.
+        // Opens the user's browser on an explicit click.
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
     }
+
+    public async Task<UpdateOffer?> CheckForUpdatesAsync(CancellationToken cancellationToken)
+    {
+        using var updates = CreateUpdateService();
+        return await updates.CheckAsync(cancellationToken).ConfigureAwait(true);
+    }
+
+    public async Task DownloadUpdateAsync(UpdateOffer offer, IProgress<int> progress, CancellationToken cancellationToken)
+    {
+        using var updates = CreateUpdateService();
+        await updates.DownloadAsync(offer, progress, cancellationToken).ConfigureAwait(true);
+    }
+
+    public async Task InstallUpdateAsync()
+    {
+        // Settings and history live in the data folder, not next to the EXE: the new version just uses them.
+        await SelfUpdate.RestartIntoNewVersionAsync(ExePath, _log).ConfigureAwait(true);
+        Exit();
+    }
+
+    /// <summary>One per click and disposed right after: no networking code is loaded before, and no connection outlives it.</summary>
+    private UpdateService CreateUpdateService() =>
+        new(ReleaseVersion.TryParse(VersionText, out var version) ? version : ReleaseVersion.Zero, ExePath, _log);
 
     public void ShowLicenses(Window owner)
     {

@@ -1,3 +1,5 @@
+using ClipboardManager.Core.Updates;
+
 namespace ClipboardManager.Localization;
 
 public static partial class Strings
@@ -114,7 +116,48 @@ public static partial class Strings
 
     public static string Version(string version) => T($"Version {version}", $"Version {version}");
 
-    public static string NoTelemetry => T("Keine Telemetrie, keine Konten, keine Netzwerkverbindungen. Alles bleibt auf diesem PC.", "No telemetry, no accounts, no network connections. Everything stays on this PC.");
+    public static string NoTelemetry => T(
+        "Keine Telemetrie, keine Konten. Die App geht nur online, wenn du nach Updates suchst – und dann nur zu GitHub. Dein Verlauf bleibt auf diesem PC.",
+        "No telemetry, no accounts. The app only goes online when you check for updates, and then only to GitHub. Your history stays on this PC.");
+
+    public static string CheckForUpdates => T("Nach Updates suchen", "Check for updates");
+
+    public static string UpdateChecking => T("Suche nach Updates…", "Checking for updates…");
+
+    public static string UpdateUpToDate(string version) => T($"Du hast die neueste Version (v{version}).", $"You're up to date (v{version}).");
+
+    public static string UpdateAvailable(string version) => T($"Version v{version} ist verfügbar.", $"Version v{version} is available.");
+
+    public static string InstallUpdate => T("Update installieren", "Install update");
+
+    public static string WhatsNew => T("Was ist neu?", "What's new");
+
+    public static string UpdateDownloading(int percent) => T($"Wird heruntergeladen… {percent} %", $"Downloading… {percent}%");
+
+    public static string UpdateProgress => T("Download-Fortschritt", "Download progress");
+
+    public static string UpdateInstalling => T("Wird installiert – die App startet gleich neu…", "Installing – the app restarts in a moment…");
+
+    public static string OpenReleasesPage => T("Releases-Seite öffnen", "Open releases page");
+
+    public static string UpdateNote => T(
+        "Fragt nur auf Klick bei GitHub nach der neuesten Version, ohne Daten über dich oder deine Zwischenablage. Einstellungen und Verlauf bleiben beim Update erhalten.",
+        "Asks GitHub for the latest version only when you click, without sending anything about you or your clipboard. Settings and history are kept when updating.");
+
+    public static string UpdateFailed(UpdateError error) => error switch
+    {
+        UpdateError.Offline => T("GitHub ist nicht erreichbar. Prüfe die Internetverbindung und versuche es erneut.", "Could not reach GitHub. Check the internet connection and try again."),
+        UpdateError.RateLimited => T("GitHub nimmt von dieser Adresse gerade keine Anfragen an. Versuche es in einer Stunde erneut.", "GitHub is not accepting requests from this address right now. Try again in an hour."),
+        UpdateError.ServerError => T("GitHub hat unerwartet geantwortet. Versuche es später erneut.", "GitHub sent an unexpected answer. Try again later."),
+        UpdateError.NoDownload => T("Diese Version enthält keine passende EXE für diesen PC.", "This release has no matching EXE for this PC."),
+        UpdateError.VerificationFailed => T("Der Download konnte nicht überprüft werden und wurde verworfen.", "The download could not be verified and was discarded."),
+        UpdateError.NotWritable => T(
+            "Der Ordner der App ist ohne Administratorrechte nicht beschreibbar (z. B. „Programme“). Lade die neue Version über die Releases-Seite herunter.",
+            "The app's folder is not writable without administrator rights (for example Program Files). Download the new version from the releases page."),
+        UpdateError.Unsupported => T("Diese Kopie kann sich nicht selbst aktualisieren (kein Release-Build).", "This copy cannot update itself (not a release build)."),
+        UpdateError.InstallFailed => T("Die neue Version konnte nicht installiert werden. Die bisherige bleibt erhalten.", "The new version could not be installed. The current version is kept."),
+        _ => string.Empty,
+    };
 
     public static string License => T(
         "Freie Software unter der GNU GPL v3 oder später. Ohne jegliche Gewährleistung.",

@@ -7,8 +7,9 @@ trustworthy tool over a long feature list, so please read the principles before 
 
 - **Performance and reliability first.** No polling, no periodic timers while idle, no work on the
   UI thread that could block. Measure before and after (see [docs/performance.md](docs/performance.md)).
-- **Privacy is a hard requirement.** No network code, no telemetry, never log clipboard content
-  (not even in exception messages), and keep the guarantees in [docs/privacy.md](docs/privacy.md) true.
+- **Privacy is a hard requirement.** No network code outside the user-triggered updater
+  (`ClipboardManager.Updates`), no automatic checks, no telemetry, never log clipboard content (not
+  even in exception messages), and keep the guarantees in [docs/privacy.md](docs/privacy.md) true.
 - **Keep it simple.** Two production projects, no MVVM/DI frameworks, dependencies only when they
   bring a real benefit. Discuss new dependencies in an issue first.
 - **Honest UX.** Never promise what Windows cannot guarantee.

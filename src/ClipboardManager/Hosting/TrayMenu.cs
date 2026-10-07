@@ -16,6 +16,7 @@ internal enum TrayCommand
     IgnoreNext = 15,
     Clear = 20,
     Settings = 21,
+    CheckForUpdates = 22,
     Exit = 30,
 }
 
@@ -54,6 +55,7 @@ internal static class TrayMenu
             Separator(menu);
             Add(menu, TrayCommand.Clear, Strings.TrayClear);
             Add(menu, TrayCommand.Settings, Strings.TraySettings);
+            Add(menu, TrayCommand.CheckForUpdates, Strings.TrayCheckForUpdates);
             Separator(menu);
             Add(menu, TrayCommand.Exit, Strings.TrayExit);
 

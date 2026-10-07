@@ -193,6 +193,8 @@ public static partial class Strings
 
     public static string TraySettings => T("Einstellungen…", "Settings…");
 
+    public static string TrayCheckForUpdates => T("Nach Updates suchen…", "Check for updates…");
+
     public static string TrayExit => T("Beenden", "Exit");
 
     public static string TrayTooltip(string status) => $"{AppName} – {status}";
@@ -201,6 +203,8 @@ public static partial class Strings
     public static string HotkeyFallbackNotice(string used) => T($"Strg+Umschalt+V ist belegt. Stattdessen gilt {used}.", $"Ctrl+Shift+V is taken. Using {used} instead.");
 
     public static string HotkeyTakenNotice => T("Der Hotkey ist von einer anderen App belegt. Öffne den Verlauf über das Tray-Symbol und wähle in den Einstellungen einen anderen.", "The hotkey is used by another app. Open the history from the tray icon and pick another one in Settings.");
+
+    public static string UpdatedTo(string version) => T($"Aktualisiert auf v{version}", $"Updated to v{version}");
 
     public static string StoreNotice(Core.History.StoreNotice notice) => notice switch
     {

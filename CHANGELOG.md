@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- In-app update check: *Settings → About → Check for updates* (also *Check for updates…* in the tray
+  menu). Runs only on an explicit click and contacts only GitHub; *Install update* downloads the
+  EXE for this PC, verifies its size and SHA-256 against the release's `SHA256SUMS.txt`, replaces
+  the EXE in place and restarts. Settings, history and autostart are kept. Folders that need
+  administrator rights get a link to the releases page instead.
+
+### Changed
+
+- The privacy guarantee is now "no network connections unless you click *Check for updates*"; a
+  test keeps networking code confined to the updater.
+- The About section shows the version without the build commit.
+
 ### Fixed
 
 - The app no longer crashes when the history popup is opened and closed quickly, or after Windows

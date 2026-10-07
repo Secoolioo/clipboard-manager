@@ -77,8 +77,9 @@ Copying something again moves it to the top instead of adding a second row.
 <td width="50%" valign="top">
 
 **🔒 Private by design**<br>
-No network code at all. Honors the "do not record" markers of password managers and private
-browser windows. Hides itself from screen sharing.
+Never goes online on its own – only when you click *Check for updates*, and then only to GitHub.
+Honors the "do not record" markers of password managers and private browser windows. Hides itself
+from screen sharing.
 
 **⏸️ Pause anytime**<br>
 5 min, 30 min, 1 hour or until you resume – or just "ignore the next copy".
@@ -122,6 +123,15 @@ complete .NET runtime; in exchange it needs no installation and stays at ~35 MB 
 gh attestation verify ClipboardManager.exe --repo Secoolioo/clipboard-manager
 ```
 
+### Updating
+
+*Settings → About → **Check for updates*** (or *Check for updates…* in the tray menu). If a newer
+release exists, **Install update** downloads the EXE for your PC, accepts it only if its size and
+SHA-256 match the release's `SHA256SUMS.txt`, replaces the EXE in place and restarts the app.
+Settings, history, pins and autostart stay as they are. The app never checks on its own. If the EXE
+sits in a folder that needs administrator rights (e.g. *Program Files*), it says so and offers the
+releases page instead – it never asks for elevation.
+
 ### Requirements
 
 - Windows 11 (supported) or Windows 10 22H2 (best effort), x64 or ARM64
@@ -156,9 +166,10 @@ A clipboard manager sees everything you copy, so privacy is not a feature here �
 
 **What the app guarantees (and tests in CI):**
 
-- **No network access.** The code contains no networking at all; a test fails the build if a
-  networking library or an unexpected native library is ever referenced. No telemetry, no update
-  checks, no account.
+- **No network access unless you ask for it.** No telemetry, no automatic update checks, no
+  account. Only a click on *Check for updates* contacts GitHub (the API, then the release download),
+  and nothing about you or your clipboard is sent. A test fails the build if networking code
+  appears anywhere outside the updater or an unexpected native library is referenced.
 - **Password managers are respected.** Content carrying the Windows "do not record" markers
   (`ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory = 0`,
   `Clipboard Viewer Ignore`) is never read. KeePass, KeePassXC, Bitwarden, Proton Pass and
@@ -192,7 +203,7 @@ shape – use *pause* or *ignore next copy* for those. Details: [docs/privacy.md
 Start with Windows · Start menu entry · record on/off · language · shortcut recorder (rejects
 combinations that would break copy/paste) · maximum entries (25 – 5,000) · memory-only history ·
 clear history · detected-credential filter · screen-capture hiding · excluded apps (with "last
-ignored" status) · theme · open data folder · licenses · remove everything.
+ignored" status) · theme · check for updates · open data folder · licenses · remove everything.
 
 Autostart uses the regular per-user *Run* entry, so it also shows up – and can be turned off – in
 Task Manager → Startup apps. The app never re-enables it behind your back.

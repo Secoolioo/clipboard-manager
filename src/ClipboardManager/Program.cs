@@ -19,11 +19,17 @@ internal static class Program
             options = StartupOptions.Parse(args);
             if (!options.SelfTest)
             {
+                if (options.UpdatedFrom is { } previous)
+                {
+                    // Started by the in-app updater: the replaced version holds the mutex until it has exited.
+                    SingleInstance.WaitForExit(previous, TimeSpan.FromSeconds(20));
+                }
+
                 switch (SingleInstance.Acquire())
                 {
                     case InstanceRole.Secondary:
-                        // A manual start opens the running instance's popup; an autostart duplicate just leaves.
-                        if (!options.Autostart)
+                        // A manual start opens the running instance's popup; an autostart or update duplicate just leaves.
+                        if (options.IsManualStart)
                         {
                             SingleInstance.ActivateExisting(TimeSpan.FromSeconds(3));
                         }

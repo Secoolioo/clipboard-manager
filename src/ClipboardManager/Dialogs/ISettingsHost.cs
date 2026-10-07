@@ -1,5 +1,6 @@
 using System.Windows;
 using ClipboardManager.Core.Settings;
+using ClipboardManager.Core.Updates;
 using ClipboardManager.Shell;
 
 namespace ClipboardManager.Dialogs;
@@ -56,6 +57,15 @@ internal interface ISettingsHost
     string VersionText { get; }
 
     void OpenUrl(string url);
+
+    /// <summary>Null when up to date. Throws <see cref="UpdateException"/>.</summary>
+    Task<UpdateOffer?> CheckForUpdatesAsync(CancellationToken cancellationToken);
+
+    /// <summary>Downloads and verifies the new EXE next to the running one. Throws <see cref="UpdateException"/>.</summary>
+    Task DownloadUpdateAsync(UpdateOffer offer, IProgress<int> progress, CancellationToken cancellationToken);
+
+    /// <summary>Swaps in the downloaded EXE, starts it and exits. Throws <see cref="UpdateException"/> and keeps running on failure.</summary>
+    Task InstallUpdateAsync();
 
     void ShowLicenses(Window owner);
 

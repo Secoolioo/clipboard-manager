@@ -5,8 +5,8 @@ framework, one runtime dependency (`Microsoft.Data.Sqlite.Core` with the SQLiteP
 Windows' own `winsqlite3.dll`).
 
 ```
-src/ClipboardManager.Core   net10.0          history store, capture policy, search, previews, settings, log
-src/ClipboardManager        net10.0-windows  WPF app: Win32 interop, windows, tray, composition root
+src/ClipboardManager.Core   net10.0          history store, capture policy, search, previews, settings, log, update rules
+src/ClipboardManager        net10.0-windows  WPF app: Win32 interop, windows, tray, updater, composition root
 tests/ClipboardManager.Tests                  unit, store, privacy, Windows integration tests
 tools/AssetGen                                icon, README screenshots, QR code, search benchmark (never shipped)
 build/                                        release, self-test and hygiene scripts used by CI
@@ -42,13 +42,21 @@ Three execution contexts, all idle without CPU load:
   entry.
 - **PopupWindow** is created once, pre-warmed invisibly (DWM-cloaked) and then only shown and
   hidden. While open it works on a snapshot, so the list never shifts under the cursor.
+- **UpdateService** (`ClipboardManager.Updates`) is the only networking code; an instance exists
+  only for one click on *Check for updates* or *Install update*. It asks the GitHub API for the
+  latest release, then streams the EXE for the process architecture to `<exe>.new` while hashing
+  it, and keeps it only if size and SHA-256 match `SHA256SUMS.txt`. Redirects are followed by hand
+  and only to GitHub hosts. The swap renames the running `<exe>` to `<exe>.old` (allowed while running), the download to `<exe>`
+  (rolled back on failure) and starts it with `--updated-from <pid>`; the new process waits for
+  the old one to exit before it takes the single-instance mutex, then deletes `<exe>.old`.
 
 ## Data
 
 `%LOCALAPPDATA%\Secoolioo\ClipboardManager\`: `history.db` (+ `-wal`), `settings.json`,
 `logs\app.log` (1 MB + one backup), `session.active` (unclean-shutdown marker), and at most one
 `history.corrupt.db` after a recovery. `CLIPBOARDMANAGER_DATA_DIR` overrides the folder (tests,
-self-test).
+self-test). An update briefly leaves `<exe>.new` / `<exe>.old` next to the EXE; the next start
+deletes them.
 
 ```sql
 CREATE TABLE entries (
@@ -72,7 +80,8 @@ touched (the app falls back to memory). The registry holds only autostart state:
 |---|---|---|
 | Unit | policy, secrets, search, previews, settings, hotkeys, popup selection rules, localization | everywhere |
 | Store | real SQLite: dedupe, retention + size budget, pins, undo, recovery, exclusive lock, ordering | everywhere |
-| Privacy | log never contains content, deleted/memory-only text never on disk, no networking or unexpected native calls | everywhere |
+| Privacy | log never contains content, deleted/memory-only text never on disk, no networking outside the updater, no unexpected native calls | everywhere |
+| Update | SemVer order, asset choice, `SHA256SUMS.txt` and release JSON parsing, downloads against a fake GitHub (hash/size mismatch, foreign redirects, rate limit, offline), EXE swap and rollback on temp files | everywhere |
 | Windows | autostart against an isolated registry subtree, popup window behavior (cloaked) | everywhere |
 | Integration | the real clipboard: Unicode round trip, own writes, all privacy markers, locked clipboard, size limit | CI (`CM_INTEGRATION=1`) |
 
@@ -97,3 +106,4 @@ The published EXE is additionally run with `--selftest` in CI on x64 and ARM64.
 | 13 | **Copy, not auto-paste**, in v1 | predictable; focus is returned to the previous app so Ctrl+V lands right; `Shift+Enter` is reserved for a later "copy and paste" | auto-paste via `SendInput` |
 | 14 | **Exit on WM_QUERYENDSESSION** | WPF calls `Shutdown()` when `SessionEnding` is not cancelled, and cancelling would block logoff (or get the background app killed). Every capture is already committed, so the app closes its services in a bounded time there; if the user aborts the shutdown, the app starts again at the next sign-in | wait for WM_ENDSESSION |
 | 15 | **No initial capture at startup** | content copied while the app was not running (possibly during a pause or an "ignore next copy" of an earlier run) is not recorded | read the clipboard once at start |
+| 16 | **Updates only on an explicit click, swapped in place** | the privacy promise allows network access only when the user asks for it, and then only to GitHub; one EXE without an installer updates without admin rights: the running EXE can be renamed but not overwritten, so it moves to `*.old` and the verified download takes its path – autostart entry and shortcuts stay valid, settings and history live in `%LOCALAPPDATA%`. `--updated-from <pid>` is a contract every later version must keep, or an update would leave no instance running | automatic or periodic checks, a separate updater EXE, MSIX/winget, an elevated installer |

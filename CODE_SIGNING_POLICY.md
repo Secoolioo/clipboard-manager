@@ -24,8 +24,8 @@ All maintainer accounts use multi-factor authentication. Every release is approv
 
 ## Privacy
 
-Clipboard Manager does not connect to any network service and collects no data. See
-[docs/privacy.md](docs/privacy.md).
+Clipboard Manager collects no data and connects to no network service on its own; only an explicit
+click on *Check for updates* contacts GitHub. See [docs/privacy.md](docs/privacy.md).
 
 ## Licensing
 

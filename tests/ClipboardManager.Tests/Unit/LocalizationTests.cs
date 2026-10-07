@@ -55,4 +55,24 @@ public sealed class LocalizationTests
             }
         }
     }
+
+    [Fact]
+    public void Every_update_error_has_text_in_both_languages()
+    {
+        var german = new HashSet<string>();
+        var english = new HashSet<string>();
+        foreach (var error in Enum.GetValues<Core.Updates.UpdateError>())
+        {
+            Strings.Apply(LanguagePreference.German);
+            Assert.True(german.Add(Strings.UpdateFailed(error)) && Strings.UpdateFailed(error).Length > 0, error.ToString());
+            Strings.Apply(LanguagePreference.English);
+            Assert.True(english.Add(Strings.UpdateFailed(error)) && Strings.UpdateFailed(error).Length > 0, error.ToString());
+        }
+
+        Strings.Apply(LanguagePreference.German);
+        Assert.Equal("Aktualisiert auf v0.10.0", Strings.UpdatedTo("0.10.0"));
+        Assert.Equal("Wird heruntergeladen… 42 %", Strings.UpdateDownloading(42));
+        Strings.Apply(LanguagePreference.English);
+        Assert.Equal("Updated to v0.10.0", Strings.UpdatedTo("0.10.0"));
+    }
 }

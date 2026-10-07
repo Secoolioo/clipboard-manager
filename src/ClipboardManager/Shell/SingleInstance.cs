@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ClipboardManager.Interop;
 
 namespace ClipboardManager.Shell;
@@ -76,6 +77,29 @@ internal static class SingleInstance
             }
 
             Thread.Sleep(100);
+        }
+    }
+
+    /// <summary>
+    /// After an in-app update the previous version still holds the mutex while it shuts down. Waits
+    /// (bounded) for it to exit, so this start becomes the first instance.
+    /// </summary>
+    public static void WaitForExit(int processId, TimeSpan timeout)
+    {
+        try
+        {
+            using var previous = Process.GetProcessById(processId);
+            using var self = Process.GetCurrentProcess();
+
+            // Process IDs are reused: only wait for another copy of this app.
+            if (string.Equals(previous.ProcessName, self.ProcessName, StringComparison.OrdinalIgnoreCase))
+            {
+                previous.WaitForExit(timeout);
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            // Already gone.
         }
     }
 

@@ -26,6 +26,9 @@
 5. Optional: scan the EXE on VirusTotal; if Microsoft Defender flags it, submit it as a software
    developer at <https://www.microsoft.com/wdsi/filesubmission>.
 
+The in-app updater reads GitHub's *latest* release (never pre-releases) and relies on the asset
+names `ClipboardManager.exe`, `ClipboardManager-arm64.exe` and `SHA256SUMS.txt`; keep them stable.
+
 ## Dry run
 
 `build/publish-release.ps1 -Version 0.0.0-dryrun` produces the same files locally under

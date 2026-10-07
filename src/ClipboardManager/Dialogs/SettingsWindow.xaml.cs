@@ -1,10 +1,13 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using ClipboardManager.Common;
 using ClipboardManager.Core.Settings;
+using ClipboardManager.Core.Updates;
 using ClipboardManager.Localization;
 using ClipboardManager.Shell;
 
@@ -23,6 +26,11 @@ internal sealed partial class SettingsWindow : Window
     /// <summary>While a confirmation dialog is open, re-activation must not reset the controls.</summary>
     private bool _asking;
 
+    /// <summary>The running update check or download; cancelled when the window closes.</summary>
+    private CancellationTokenSource? _update;
+    private UpdateOffer? _offer;
+    private UpdateStep _updateStep = UpdateStep.UpToDate;
+
     public SettingsWindow(ISettingsHost host)
     {
         _host = host;
@@ -39,6 +47,7 @@ internal sealed partial class SettingsWindow : Window
         };
         Closed += (_, _) =>
         {
+            _update?.Cancel();
             if (_recordingHotkey)
             {
                 _host.ResumeHotkey();
@@ -394,6 +403,148 @@ internal sealed partial class SettingsWindow : Window
     private void OnSupport(object sender, RoutedEventArgs e) => _host.OpenUrl(SupportUrl);
 
     private void OnRemoveEverything(object sender, RoutedEventArgs e) => _host.RemoveEverything(this);
+
+    // ---- Updates ---------------------------------------------------------------------------
+
+    /// <summary>Tray "Check for updates…": scrolls to the section and starts the check.</summary>
+    public void CheckForUpdates() =>
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+        {
+            UpdatePanel.BringIntoView();
+            CheckUpdatesButton.Focus();
+            _ = RunUpdateCheckAsync();
+        });
+
+    private async void OnCheckForUpdates(object sender, RoutedEventArgs e) => await RunUpdateCheckAsync().ConfigureAwait(true);
+
+    private async Task RunUpdateCheckAsync()
+    {
+        if (_update is not null)
+        {
+            return;
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        _update = cancellation;
+        _offer = null;
+        ShowUpdate(Strings.UpdateChecking, UpdateStep.Busy);
+        try
+        {
+            _offer = await _host.CheckForUpdatesAsync(cancellation.Token).ConfigureAwait(true);
+            if (_offer is null)
+            {
+                ShowUpdate(Strings.UpdateUpToDate(_host.VersionText), UpdateStep.UpToDate);
+            }
+            else
+            {
+                ShowUpdate(Strings.UpdateAvailable(_offer.Version.ToString()), UpdateStep.Offer);
+            }
+        }
+        catch (UpdateException ex)
+        {
+            ShowUpdate(Strings.UpdateFailed(ex.Error), UpdateStep.Failed);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+        {
+            // The window was closed.
+        }
+        finally
+        {
+            _update = null;
+        }
+    }
+
+    private async void OnInstallUpdate(object sender, RoutedEventArgs e)
+    {
+        if (_offer is not { } offer || _update is not null)
+        {
+            return;
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        _update = cancellation;
+        ShowUpdate(Strings.UpdateDownloading(0), UpdateStep.Downloading);
+        var progress = new Progress<int>(percent =>
+        {
+            // Reports are posted; a late one must not overwrite the next state.
+            if (_updateStep == UpdateStep.Downloading && _update == cancellation)
+            {
+                ShowUpdate(Strings.UpdateDownloading(percent), UpdateStep.Downloading, percent);
+            }
+        });
+        try
+        {
+            await _host.DownloadUpdateAsync(offer, progress, cancellation.Token).ConfigureAwait(true);
+            ShowUpdate(Strings.UpdateInstalling, UpdateStep.Busy);
+            await _host.InstallUpdateAsync().ConfigureAwait(true);
+        }
+        catch (UpdateException ex)
+        {
+            ShowUpdate(Strings.UpdateFailed(ex.Error), UpdateStep.Failed);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+        {
+            ShowUpdate(Strings.UpdateAvailable(offer.Version.ToString()), UpdateStep.Offer);
+        }
+        finally
+        {
+            _update = null;
+        }
+    }
+
+    private void OnCancelUpdate(object sender, RoutedEventArgs e) => _update?.Cancel();
+
+    private void OnWhatsNew(object sender, RoutedEventArgs e) => _host.OpenUrl(_offer?.ReleasePage.AbsoluteUri ?? UpdateRules.ReleasesPage);
+
+    private void OnReleasesPage(object sender, RoutedEventArgs e) => _host.OpenUrl(UpdateRules.ReleasesPage);
+
+    private void ShowUpdate(string status, UpdateStep step, int percent = 0)
+    {
+        var announce = step != _updateStep || UpdateStatus.Visibility != Visibility.Visible;
+        var moveFocus = UpdatePanel.IsKeyboardFocusWithin || Keyboard.FocusedElement is null or Window;
+        _updateStep = step;
+        UpdateStatus.Text = status;
+        UpdateStatus.Visibility = Visibility.Visible;
+        CheckUpdatesButton.IsEnabled = step is not (UpdateStep.Busy or UpdateStep.Downloading);
+        InstallUpdateButton.Visibility = VisibleIf(step == UpdateStep.Offer);
+        CancelUpdateButton.Visibility = VisibleIf(step == UpdateStep.Downloading);
+        WhatsNewButton.Visibility = VisibleIf(step is UpdateStep.Offer or UpdateStep.Downloading);
+        ReleasesPageButton.Visibility = VisibleIf(step == UpdateStep.Failed);
+        UpdateActions.Visibility = VisibleIf(step is UpdateStep.Offer or UpdateStep.Downloading or UpdateStep.Failed);
+        UpdateProgress.Visibility = VisibleIf(step == UpdateStep.Downloading);
+        UpdateProgress.Value = percent;
+        if (!announce)
+        {
+            return;
+        }
+
+        // Screen readers hear each new state once (not every percent); keyboard users land on the next action.
+        var peer = UIElementAutomationPeer.FromElement(UpdateStatus) ?? UIElementAutomationPeer.CreatePeerForElement(UpdateStatus);
+        peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+        Control target = step switch
+        {
+            UpdateStep.Offer => InstallUpdateButton,
+            UpdateStep.Downloading => CancelUpdateButton,
+            UpdateStep.Failed => ReleasesPageButton,
+            _ => CheckUpdatesButton,
+        };
+        if (moveFocus && target.IsEnabled)
+        {
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, () => target.Focus());
+        }
+    }
+
+    private static Visibility VisibleIf(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
+
+    private enum UpdateStep
+    {
+        /// <summary>Checking or installing: nothing to click.</summary>
+        Busy,
+        UpToDate,
+        Offer,
+        Downloading,
+        Failed,
+    }
 
     private sealed record ExcludedApp(string Name, string Status);
 }

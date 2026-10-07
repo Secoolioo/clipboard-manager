@@ -40,6 +40,13 @@ Run before a release on the CI artifact. Use demo text, never real secrets.
 - [ ] Switch Windows light/dark → app theme and tray icon follow.
 - [ ] Lock/unlock, RDP connect, sleep/resume → popup still opens instantly.
 
+## Updating
+
+- [ ] Settings → About → *Check for updates* with the latest release → "up to date"; with the network off → "Could not reach GitHub" and a releases-page button.
+- [ ] Previous release EXE in `%LOCALAPPDATA%\Programs\ClipboardManager` → *Install update* → progress, restart, one "Updated to vX" notification; settings, history, pins, hotkey and autostart entry unchanged; `ClipboardManager.exe.old` gone after the restart.
+- [ ] Same in a folder that needs admin rights (e.g. `C:\Program Files\ClipboardManager`) → "not writable" message with a releases-page button, no UAC prompt.
+- [ ] Tray → *Check for updates…* opens Settings at the About section and checks; Narrator announces each state.
+
 ## Accessibility and display
 
 - [ ] Narrator: opening announces the window; arrow keys read each entry (text, pinned, current, time).

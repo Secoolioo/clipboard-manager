@@ -24,6 +24,8 @@ In scope, for example:
 - content from password managers or other marked sources being stored
 - deleted entries remaining readable in the app's data files
 - DLL planting or other ways to run code through the app
+- the in-app updater contacting anything but GitHub, sending data about the user or the clipboard,
+  or installing a file that is not the verified release EXE
 
 Out of scope: attacks that already require running code as the same Windows user (such software can
 read the clipboard and the app's data directly), and physical access to an unencrypted disk.
@@ -36,3 +38,7 @@ attestation:
 ```bash
 gh attestation verify ClipboardManager.exe --repo Secoolioo/clipboard-manager
 ```
+
+The in-app updater (*Settings → About → Check for updates*, never automatic) downloads only over
+HTTPS from GitHub and installs the EXE only if its size and SHA-256 match the release's
+`SHA256SUMS.txt`.

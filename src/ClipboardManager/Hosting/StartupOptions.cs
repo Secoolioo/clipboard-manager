@@ -8,6 +8,12 @@ internal sealed record StartupOptions(bool Autostart, bool SelfTest, bool SelfTe
     /// <summary>Self-test only: stay idle this long after the checks (for CPU/memory measurements).</summary>
     public int IdleSeconds { get; init; }
 
+    /// <summary>Started by the in-app updater: the process ID of the version it replaces.</summary>
+    public int? UpdatedFrom { get; init; }
+
+    /// <summary>Started by the user (double-click, Start menu), not by Windows or the updater.</summary>
+    public bool IsManualStart => !Autostart && UpdatedFrom is null;
+
     public static StartupOptions Parse(string[] args)
     {
         var autostart = args.Contains(Shell.Autostart.AutostartArgument, StringComparer.OrdinalIgnoreCase);
@@ -31,6 +37,16 @@ internal sealed record StartupOptions(bool Autostart, bool SelfTest, bool SelfTe
             log = FileLog.Null;
         }
 
-        return new StartupOptions(autostart, selfTest || selfTestClipboard, selfTestClipboard, paths, log) { IdleSeconds = idle };
+        return new StartupOptions(autostart, selfTest || selfTestClipboard, selfTestClipboard, paths, log) { IdleSeconds = idle, UpdatedFrom = ParseUpdatedFrom(args) };
+    }
+
+    /// <summary>"--updated-from &lt;pid&gt;", passed by <see cref="Updates.SelfUpdate"/>.</summary>
+    internal static int? ParseUpdatedFrom(string[] args)
+    {
+        var index = Array.FindIndex(args, a => string.Equals(a, Updates.SelfUpdate.UpdatedFromArgument, StringComparison.OrdinalIgnoreCase));
+        return index >= 0 && index + 1 < args.Length &&
+            int.TryParse(args[index + 1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var pid) && pid > 0
+            ? pid
+            : null;
     }
 }
