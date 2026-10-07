@@ -19,7 +19,7 @@ using ZXing.Common;
 namespace AssetGen;
 
 /// <summary>
-/// dotnet run --project tools/AssetGen -- [icon|shots|qr|verify-qr &lt;png&gt;|all]
+/// dotnet run --project tools/AssetGen -- [icon|shots|qr|hero|social|bench|verify-qr &lt;png&gt;|all]
 /// Everything is rendered offscreen from the real app code; screenshots use only neutral demo data
 /// (RFC 2606/5737 names and addresses), never real clipboard content.
 /// </summary>
@@ -52,6 +52,11 @@ internal static class Program
                 if (command is "hero" or "all")
                 {
                     Hero.Write(root);
+                }
+
+                if (command is "social" or "all")
+                {
+                    Social.Write(root);
                 }
 
                 if (command == "bench")
