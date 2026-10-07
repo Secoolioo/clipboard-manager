@@ -46,6 +46,8 @@ internal sealed class AppController : ISettingsHost, IDisposable
     private PopupController _popup = null!;
     private SettingsWindow? _settingsWindow;
     private WelcomeWindow? _welcomeWindow;
+    private readonly Queue<long> _popupRebuilds = new();
+    private DispatcherTimer? _environmentPrewarm;
     private bool _discardMemoryEntriesOnPersist;
     private bool _stopped;
 
@@ -115,7 +117,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
         _host.ActivateRequested += (_, _) => _popup.Show(PopupSource.SecondInstance);
         _host.TrayActivity += OnTray;
         _host.SettingChanged += OnSettingChanged;
-        _host.EnvironmentChanged += (_, _) => SchedulePrewarm();
+        _host.EnvironmentChanged += (_, _) => OnEnvironmentChanged();
         _host.SessionEnding += (_, _) => ShutdownForSession();
         _monitoring.Changed += (_, _) => UpdateStatus();
         _settings.Changed += OnSettingsChanged;
@@ -158,16 +160,74 @@ internal sealed class AppController : ISettingsHost, IDisposable
         _popup = new PopupController(_popupWindow, _index, _tracker, _monitoring, _worker, _writer, _settings, _log);
         _popup.SettingsRequested += (_, _) => OpenSettings();
         _popup.StatusRequested += (_, _) => UpdateStatus();
+
+        // Never rebuild inside the failing call stack: the broken tree may throw again on teardown.
+        _popup.Failed += (_, reopen) => _dispatcher.BeginInvoke(DispatcherPriority.Normal, () => RecoverPopup(reopen));
+    }
+
+    /// <summary>
+    /// Replaces a popup window that threw, so one bad state cannot keep failing (or end the app).
+    /// Gives up after a few rebuilds in a short time; the popup then stays closed and the app keeps
+    /// capturing in the background.
+    /// </summary>
+    private void RecoverPopup(PopupSource? reopen)
+    {
+        var now = Environment.TickCount64;
+        while (_popupRebuilds.Count > 0 && now - _popupRebuilds.Peek() > 600_000)
+        {
+            _popupRebuilds.Dequeue();
+        }
+
+        if (_stopped || _popupRebuilds.Count >= 3)
+        {
+            return;
+        }
+
+        _popupRebuilds.Enqueue(now);
+        _log.Warning(Category, "Rebuilding the popup after an error");
+        var broken = _popupWindow;
+        _popup.AllowShutdown();
+        _popup.Detach();
+        try
+        {
+            broken.Close();
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(Category, "The broken popup did not close cleanly", ex);
+        }
+
+        CreatePopup();
+        if (reopen is { } source)
+        {
+            _popup.Show(source);
+        }
+        else
+        {
+            SchedulePrewarm();
+        }
     }
 
     private void SchedulePrewarm() =>
         _dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () =>
         {
-            if (!_stopped && !_popup.IsOpen)
+            if (!_stopped && !_popup.IsOpen && !_popup.IsPrewarming)
             {
                 _popup.Prewarm();
             }
         });
+
+    /// <summary>Unlock, resume and display changes arrive as a burst; warm up once after it settled.</summary>
+    private void OnEnvironmentChanged()
+    {
+        _environmentPrewarm ??= new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.ApplicationIdle, (sender, _) =>
+        {
+            ((DispatcherTimer)sender!).Stop();
+            SchedulePrewarm();
+        }, _dispatcher);
+        _environmentPrewarm.Stop();
+        _environmentPrewarm.Start();
+    }
 
     private void RunFirstStartTasks(HotkeyStatus hotkeyStatus)
     {
@@ -668,6 +728,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
         }
 
         _stopped = true;
+        _environmentPrewarm?.Stop();
         try
         {
             _popup?.AllowShutdown();

@@ -28,7 +28,8 @@ body:
     id: version
     attributes:
       label: App version
-      description: Settings → About
+      description: "Settings → About (or right-click ClipboardManager.exe → Properties → Details)"
+      placeholder: 0.10.0
     validations:
       required: true
   - type: input
@@ -42,5 +43,7 @@ body:
     id: log
     attributes:
       label: Log (optional)
-      description: Settings → About → Open data folder → logs\app.log. It never contains clipboard content.
+      description: |
+        Paste the last entries of `%LOCALAPPDATA%\Secoolioo\ClipboardManager\logs\app.log` (paste that path into the Explorer address bar, or Settings → About → Open data folder → logs).
+        The log never contains clipboard content.
       render: text

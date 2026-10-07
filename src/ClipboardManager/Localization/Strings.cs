@@ -238,7 +238,13 @@ public static partial class Strings
     public static string RemoveAllConfirm => T("Alles entfernen", "Remove everything");
 
     // Errors
-    public static string StartupFailed => T("Clipboard Manager konnte nicht starten. Details stehen im Log im Datenordner.", "Clipboard Manager could not start. Details are in the log in the data folder.");
+    public static string StartupFailed(string logFile) => T(
+        $"Clipboard Manager konnte nicht starten.\n\nDetails stehen im Log (es enthält nie Inhalte der Zwischenablage):\n{logFile}\n\nLog-Ordner öffnen?",
+        $"Clipboard Manager could not start.\n\nDetails are in the log (it never contains clipboard content):\n{logFile}\n\nOpen the log folder?");
+
+    public static string RuntimeFailed(string logFile) => T(
+        $"Clipboard Manager wurde nach wiederholten Fehlern beendet. Starte es über das Startmenü neu.\n\nDetails stehen im Log (es enthält nie Inhalte der Zwischenablage) – gern an ein GitHub-Issue anhängen:\n{logFile}\n\nLog-Ordner öffnen?",
+        $"Clipboard Manager stopped after repeated errors. Start it again from the Start menu.\n\nDetails are in the log (it never contains clipboard content) – feel free to attach it to a GitHub issue:\n{logFile}\n\nOpen the log folder?");
 
     public static string AlreadyRunningElevated => T("Clipboard Manager läuft bereits als Administrator. Beende diese Instanz zuerst.", "Clipboard Manager is already running as administrator. Exit that instance first.");
 }

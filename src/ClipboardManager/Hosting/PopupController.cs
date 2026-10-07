@@ -43,6 +43,7 @@ internal sealed class PopupController : IPopupActions
     private bool _refreshed;
     private bool _warm;
     private bool _busy;
+    private bool _closing;
 
     public PopupController(
         PopupWindow window,
@@ -78,7 +79,15 @@ internal sealed class PopupController : IPopupActions
 
     public event EventHandler? StatusRequested;
 
+    /// <summary>
+    /// The window threw while showing, warming up or closing and should be replaced. Carries the
+    /// source of the open that failed, so the replacement can open instead.
+    /// </summary>
+    public event EventHandler<PopupSource?>? Failed;
+
     public bool IsOpen => _window.IsVisible && !_window.IsPrewarming;
+
+    public bool IsPrewarming => _window.IsPrewarming;
 
     /// <summary>Hide-then-click on the tray icon must not reopen immediately.</summary>
     public bool RecentlyHidden => Environment.TickCount64 - _hiddenAt < 300;
@@ -89,16 +98,13 @@ internal sealed class PopupController : IPopupActions
     /// </summary>
     public void Prewarm()
     {
-        if (IsOpen)
+        if (_window.IsVisible || _window.IsPrewarming)
         {
+            // Open, or a warm-up is already running (unlock, resume and display changes arrive in bursts).
             return;
         }
 
         var hwnd = new WindowInteropHelper(_window).EnsureHandle();
-        Dwm.Set(hwnd, Dwm.DWMWA_CLOAK, 1);
-        _window.IsPrewarming = true;
-        _window.ShowActivated = false;
-        LoadSnapshot();
         void Rendered(object? sender, EventArgs e)
         {
             _window.ContentRendered -= Rendered;
@@ -114,25 +120,75 @@ internal sealed class PopupController : IPopupActions
                 return;
             }
 
-            _window.Hide();
-            _viewModel.Reset();
-            _window.ShowActivated = true;
-            _window.IsPrewarming = false;
-            Dwm.Set(hwnd, Dwm.DWMWA_CLOAK, 0);
-            _warm = true;
+            try
+            {
+                _window.Hide();
+                _viewModel.Reset();
+                EndPrewarm(hwnd);
+                _warm = true;
+            }
+            catch (Exception ex)
+            {
+                _window.ContentRendered -= Rendered;
+                Fail(ex);
+            }
         }
 
-        if (_warm)
+        try
         {
-            _window.Show();
-            _window.UpdateLayout();
-            _window.Dispatcher.BeginInvoke(Finish, System.Windows.Threading.DispatcherPriority.ContextIdle);
+            Dwm.Set(hwnd, Dwm.DWMWA_CLOAK, 1);
+            _window.IsPrewarming = true;
+            _window.ShowActivated = false;
+            LoadSnapshot();
+            if (_warm)
+            {
+                _window.Show();
+                _window.UpdateLayout();
+                _window.Dispatcher.BeginInvoke(Finish, System.Windows.Threading.DispatcherPriority.ContextIdle);
+            }
+            else
+            {
+                _window.ContentRendered += Rendered;
+                _window.Show();
+            }
         }
-        else
+        catch (Exception ex)
         {
-            _window.ContentRendered += Rendered;
-            _window.Show();
+            _window.ContentRendered -= Rendered;
+            Fail(ex);
         }
+    }
+
+    private void EndPrewarm(IntPtr hwnd)
+    {
+        _window.ShowActivated = true;
+        _window.IsPrewarming = false;
+        Dwm.Set(hwnd, Dwm.DWMWA_CLOAK, 0);
+    }
+
+    /// <summary>
+    /// A broken popup must never take the background app down or stay half-shown: hide it, log
+    /// once and let the controller replace the window.
+    /// </summary>
+    private void Fail(Exception ex, PopupSource? reopen = null)
+    {
+        _log.Error(Category, "Popup failed", ex);
+        try
+        {
+            if (_window.IsVisible)
+            {
+                _window.Hide();
+            }
+
+            EndPrewarm(new WindowInteropHelper(_window).Handle);
+        }
+        catch (Exception)
+        {
+            // The window is replaced anyway.
+        }
+
+        _hiddenAt = Environment.TickCount64;
+        Failed?.Invoke(this, reopen);
     }
 
     public void Toggle(PopupSource source)
@@ -164,12 +220,20 @@ internal sealed class PopupController : IPopupActions
         _session++;
         _refreshed = false;
         StatusRequested?.Invoke(this, EventArgs.Empty);
-        LoadSnapshot(initial: true);
-        Place(foreground);
-        _window.Show();
-        _window.Activate();
-        User32.SetForegroundWindow(_window.Handle);
-        _window.MarkShown();
+        try
+        {
+            LoadSnapshot(initial: true);
+            Place(foreground);
+            _window.Show();
+            _window.Activate();
+            User32.SetForegroundWindow(_window.Handle);
+            _window.MarkShown();
+        }
+        catch (Exception ex)
+        {
+            Fail(ex, source);
+            return;
+        }
 
         if (_log.IsEnabled(LogLevel.Debug))
         {
@@ -193,23 +257,37 @@ internal sealed class PopupController : IPopupActions
 
     public void Close(bool restoreFocus)
     {
-        if (!_window.IsVisible)
+        if (!_window.IsVisible || _closing)
         {
+            // Giving the foreground back deactivates the popup, which calls Close again.
             return;
         }
 
-        // Give the foreground back while we still own it; after Hide() Windows may refuse it.
-        if (restoreFocus && _previousForeground != IntPtr.Zero && User32.IsWindow(_previousForeground))
+        _closing = true;
+        try
         {
-            User32.SetForegroundWindow(_previousForeground);
-        }
+            // Give the foreground back while we still own it; after Hide() Windows may refuse it.
+            if (restoreFocus && _previousForeground != IntPtr.Zero && User32.IsWindow(_previousForeground))
+            {
+                User32.SetForegroundWindow(_previousForeground);
+            }
 
-        _previousForeground = IntPtr.Zero;
-        _session++;
-        PersistViewState();
-        _viewModel.Reset();
-        _window.Hide();
-        _hiddenAt = Environment.TickCount64;
+            _previousForeground = IntPtr.Zero;
+            _session++;
+            PersistViewState();
+            _viewModel.Reset();
+            _window.Hide();
+            _hiddenAt = Environment.TickCount64;
+        }
+        catch (Exception ex)
+        {
+            // A topmost popup must always go away.
+            Fail(ex);
+        }
+        finally
+        {
+            _closing = false;
+        }
     }
 
     public async Task CopyAsync(EntryRow row)

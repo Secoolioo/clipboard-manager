@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ClipboardManager.Hosting;
 using ClipboardManager.Interop;
 using ClipboardManager.Localization;
@@ -43,7 +44,14 @@ internal static class Program
 
             var app = new App(options);
             app.InitializeComponent();
-            return app.Run();
+            var exitCode = app.Run();
+            if (!options.SelfTest && (app.FatalError ?? app.StartupError) is not null)
+            {
+                // The dispatcher has stopped: the message box cannot re-enter WPF any more.
+                ShowError(app.FatalError is not null ? Strings.RuntimeFailed(LogFile(options)) : Strings.StartupFailed(LogFile(options)), options);
+            }
+
+            return exitCode;
         }
         catch (Exception ex)
         {
@@ -60,13 +68,52 @@ internal static class Program
                 return 1;
             }
 
-            // Plain Win32 message box: WPF itself may be what failed to load.
-            User32.MessageBox(IntPtr.Zero, Strings.StartupFailed, Strings.AppName, User32.MB_ICONERROR);
+            StopDispatcher();
+            ShowError(Strings.StartupFailed(LogFile(options)), options);
             return 1;
         }
         finally
         {
             SingleInstance.Release();
+        }
+    }
+
+    private static string LogFile(StartupOptions? options) =>
+        Path.Combine((options?.Paths ?? Core.AppPaths.Default()).LogDirectory, "app.log");
+
+    /// <summary>Plain Win32 message box (WPF itself may be what failed) that offers to show the log.</summary>
+    private static void ShowError(string text, StartupOptions? options)
+    {
+        if (User32.MessageBox(IntPtr.Zero, text, Strings.AppName, User32.MB_ICONERROR | User32.MB_YESNO) != User32.IDYES)
+        {
+            return;
+        }
+
+        try
+        {
+            // Full path: a bare "explorer.exe" would be searched in the current directory (e.g. Downloads) first.
+            var explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+            var log = LogFile(options);
+            var arguments = File.Exists(log) ? $"/select,\"{log}\"" : $"\"{Path.GetDirectoryName(log)}\"";
+            Process.Start(new ProcessStartInfo(explorer, arguments) { UseShellExecute = false })?.Dispose();
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException)
+        {
+            options?.Log.Warning("Startup", "Could not open the log folder", ex);
+        }
+    }
+
+    /// <summary>Ends the WPF message loop before a modal dialog could pump queued UI work again.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void StopDispatcher()
+    {
+        try
+        {
+            System.Windows.Threading.Dispatcher.FromThread(Thread.CurrentThread)?.InvokeShutdown();
+        }
+        catch (Exception)
+        {
+            // WPF may be what failed to load; the message box below works without it.
         }
     }
 }

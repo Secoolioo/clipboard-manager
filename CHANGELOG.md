@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The app no longer crashes when the history popup is opened and closed quickly, or after Windows
+  was locked and unlocked (#1, #2). A hint row in the popup (empty history, skipped copy, no
+  results, loading) used a theme color that the Fluent theme only defines as an alias; every time
+  the row was built it threw, and repeated errors ended the app.
+- A popup that fails is now replaced instead of taking the app down, unlock, resume and display
+  changes warm the popup up only once, and the popup always hides even if closing fails.
+- The error message after a crash now names the log file and offers to open its folder, and is no
+  longer the "could not start" text when the app had been running.
+
 ## [0.9.0] - 2026-10-06
 
 First public release.

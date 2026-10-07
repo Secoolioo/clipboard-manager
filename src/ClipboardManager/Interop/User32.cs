@@ -53,6 +53,8 @@ internal static partial class User32
     public const uint MB_OK = 0x0;
     public const uint MB_ICONERROR = 0x10;
     public const uint MB_ICONINFORMATION = 0x40;
+    public const uint MB_YESNO = 0x4;
+    public const int IDYES = 6;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT

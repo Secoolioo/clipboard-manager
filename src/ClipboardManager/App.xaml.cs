@@ -14,6 +14,12 @@ internal sealed partial class App : Application
     private readonly Queue<long> _recentFailures = new();
     private AppController? _controller;
 
+    /// <summary>Set when startup failed; Program shows the message after the dispatcher has stopped.</summary>
+    public Exception? StartupError { get; private set; }
+
+    /// <summary>Set when repeated UI errors ended the app at runtime.</summary>
+    public Exception? FatalError { get; private set; }
+
     public App(StartupOptions options)
     {
         _options = options;
@@ -49,14 +55,11 @@ internal sealed partial class App : Application
         }
         catch (Exception ex)
         {
-            // A half-started background app is worse than a clear failure.
+            // A half-started background app is worse than a clear failure. Stop everything first:
+            // nothing (hotkey, tray, queued UI work) may stay live behind the error message.
             _options.Log.Error(Category, "Startup failed", ex);
-            if (!_options.SelfTest)
-            {
-                Interop.User32.MessageBox(IntPtr.Zero, Localization.Strings.StartupFailed, Localization.Strings.AppName, Interop.User32.MB_ICONERROR);
-            }
-
             _controller?.Dispose();
+            StartupError = ex;
             Shutdown(1);
         }
     }
@@ -79,10 +82,17 @@ internal sealed partial class App : Application
 
     /// <summary>
     /// Keep a background utility alive through isolated UI errors, but give up if errors repeat
-    /// (a broken state should not loop forever).
+    /// (a broken state should not loop forever). Nothing escapes the dispatcher: the app shuts down
+    /// in order and Program reports it once the message loop has ended.
     /// </summary>
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        e.Handled = true;
+        if (FatalError is not null)
+        {
+            return;
+        }
+
         _options.Log.Error(Category, "Unhandled UI exception", e.Exception);
         var now = Environment.TickCount64;
         _recentFailures.Enqueue(now);
@@ -91,9 +101,11 @@ internal sealed partial class App : Application
             _recentFailures.Dequeue();
         }
 
-        if (_recentFailures.Count <= MaxUnhandledPerMinute)
+        if (_recentFailures.Count > MaxUnhandledPerMinute)
         {
-            e.Handled = true;
+            FatalError = e.Exception;
+            _controller?.Dispose();
+            Shutdown(1);
         }
     }
 }
