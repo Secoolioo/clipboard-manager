@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-07
+
+More stability: the app keeps running even if part of its window ever fails again.
+
+### Fixed
+
+- Copying an image no longer crashes the app (#6, same cause as #1 and #2, fixed since 0.10.0).
+  Images stay untouched on the clipboard and can be pasted as usual; the history keeps text only
+  and shows "Last copy not saved – not text".
+- A popup whose content fails is now closed and replaced immediately instead of failing again on
+  every layout pass, and a burst of identical errors counts once, so one broken state can no
+  longer end the app.
+- Refreshing an open popup after a new capture is protected like opening and closing.
+- For images, files and other non-text content the clipboard is released right after the format
+  check, before any other work.
+
 ## [0.10.0] - 2026-10-07
 
 Crash fixes from the first testers, a built-in update button and a quieter start with Windows.
@@ -66,6 +82,7 @@ First public release.
 - Single self-contained EXE for x64 and ARM64, self-test mode, SHA-256 hashes and build provenance
   attestations for releases.
 
-[Unreleased]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/Secoolioo/clipboard-manager/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/Secoolioo/clipboard-manager/releases/tag/v0.9.0

@@ -211,7 +211,11 @@ internal sealed class AppController : ISettingsHost, IDisposable
         _popup.Detach();
         try
         {
-            broken.Close();
+            // The failing controller normally closed it already.
+            if (new WindowInteropHelper(broken).Handle != IntPtr.Zero)
+            {
+                broken.Close();
+            }
         }
         catch (Exception ex)
         {
@@ -237,6 +241,15 @@ internal sealed class AppController : ISettingsHost, IDisposable
                 _popup.Prewarm();
             }
         });
+
+    /// <summary>An unhandled UI error: if it came from the popup's tree, this stops it from repeating.</summary>
+    public void ContainUiFailure(Exception exception)
+    {
+        if (!_stopped)
+        {
+            _popup?.FailFromOutside(exception);
+        }
+    }
 
     /// <summary>Unlock, resume and display changes arrive as a burst; warm up once after it settled.</summary>
     private void OnEnvironmentChanged()

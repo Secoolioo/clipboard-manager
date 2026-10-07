@@ -12,6 +12,8 @@ internal sealed partial class App : Application
 
     private readonly StartupOptions _options;
     private readonly Queue<long> _recentFailures = new();
+    private long _lastFailureAt = long.MinValue / 2;
+    private long _burstStartedAt;
     private AppController? _controller;
 
     /// <summary>Set when startup failed; Program shows the message after the dispatcher has stopped.</summary>
@@ -93,8 +95,26 @@ internal sealed partial class App : Application
             return;
         }
 
-        _options.Log.Error(Category, "Unhandled UI exception", e.Exception);
+        // One broken state throws on every layout pass: a burst counts (and is logged) once, but
+        // a burst that never ends is a failure of its own.
         var now = Environment.TickCount64;
+        var inBurst = now - _lastFailureAt < 2_000;
+        _lastFailureAt = now;
+        if (inBurst)
+        {
+            if (now - _burstStartedAt > 30_000)
+            {
+                Fail(e.Exception);
+            }
+
+            return;
+        }
+
+        _burstStartedAt = now;
+        _options.Log.Error(Category, "Unhandled UI exception", e.Exception);
+
+        // Most UI errors come from the popup's tree; replacing the window ends the burst.
+        _controller?.ContainUiFailure(e.Exception);
         _recentFailures.Enqueue(now);
         while (_recentFailures.Count > 0 && now - _recentFailures.Peek() > 60_000)
         {
@@ -103,9 +123,15 @@ internal sealed partial class App : Application
 
         if (_recentFailures.Count > MaxUnhandledPerMinute)
         {
-            FatalError = e.Exception;
-            _controller?.Dispose();
-            Shutdown(1);
+            Fail(e.Exception);
         }
+    }
+
+    private void Fail(Exception exception)
+    {
+        _options.Log.Error(Category, "Giving up after repeated UI errors", exception);
+        FatalError = exception;
+        _controller?.Dispose();
+        Shutdown(1);
     }
 }

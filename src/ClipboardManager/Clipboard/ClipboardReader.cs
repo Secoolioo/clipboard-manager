@@ -218,16 +218,18 @@ internal sealed class ClipboardReader : IDisposable
             return new ClipboardSnapshot(sequence, SkipReason.MarkedBySource, null, null);
         }
 
+        // Images, files and other non-text content: let go of the clipboard right away (the app
+        // that copied it may want to paste it at this very moment). Nothing of it is ever read.
+        if (!User32.IsClipboardFormatAvailable(User32.CF_UNICODETEXT))
+        {
+            return new ClipboardSnapshot(sequence, SkipReason.NotText, null, null);
+        }
+
         // Decide on app exclusion before the text is ever copied into our process.
         var source = Kernel32.ProcessExeOfWindow(owner) ?? _foregroundExe;
         if (_settings.IsExcluded(source))
         {
             return new ClipboardSnapshot(sequence, SkipReason.ExcludedApp, null, source);
-        }
-
-        if (!User32.IsClipboardFormatAvailable(User32.CF_UNICODETEXT))
-        {
-            return new ClipboardSnapshot(sequence, SkipReason.NotText, null, source);
         }
 
         var handle = User32.GetClipboardData(User32.CF_UNICODETEXT);

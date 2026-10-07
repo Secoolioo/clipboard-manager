@@ -175,6 +175,36 @@ public sealed class ClipboardIntegrationTests
     });
 
     [Fact]
+    public Task A_copied_image_is_skipped_and_left_untouched() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+
+        // 1x1 pixel, 32 bpp CF_DIB (BITMAPINFOHEADER + one pixel), like a screenshot tool puts it.
+        var dib = new byte[44];
+        BitConverter.GetBytes(40).CopyTo(dib, 0);
+        BitConverter.GetBytes(1).CopyTo(dib, 4);
+        BitConverter.GetBytes(1).CopyTo(dib, 8);
+        BitConverter.GetBytes((short)1).CopyTo(dib, 12);
+        BitConverter.GetBytes((short)32).CopyTo(dib, 14);
+        BitConverter.GetBytes(4).CopyTo(dib, 20);
+        dib[40] = 0x30;
+        dib[41] = 0x60;
+        dib[42] = 0x90;
+        const uint CF_DIB = 8;
+        Put(owner, null, (CF_DIB, dib));
+        var sequence = User32.GetClipboardSequenceNumber();
+
+        var snapshot = await ReadAsync(new ClipboardGate());
+
+        Assert.Equal(SkipReason.NotText, snapshot.ReaderSkip);
+        Assert.Null(snapshot.Text);
+
+        // Reading never renders, changes or empties the image: it can still be pasted.
+        Assert.Equal(sequence, User32.GetClipboardSequenceNumber());
+        Assert.True(User32.IsClipboardFormatAvailable(CF_DIB));
+    });
+
+    [Fact]
     public Task Oversized_text_is_skipped_before_it_is_copied() => WithOwnerWindow(async owner =>
     {
         Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");

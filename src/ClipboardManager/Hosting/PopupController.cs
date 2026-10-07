@@ -44,6 +44,7 @@ internal sealed class PopupController : IPopupActions
     private bool _warm;
     private bool _busy;
     private bool _closing;
+    private bool _failed;
 
     public PopupController(
         PopupWindow window,
@@ -98,7 +99,7 @@ internal sealed class PopupController : IPopupActions
     /// </summary>
     public void Prewarm()
     {
-        if (_window.IsVisible || _window.IsPrewarming)
+        if (_failed || _window.IsVisible || _window.IsPrewarming)
         {
             // Open, or a warm-up is already running (unlock, resume and display changes arrive in bursts).
             return;
@@ -173,6 +174,7 @@ internal sealed class PopupController : IPopupActions
     private void Fail(Exception ex, PopupSource? reopen = null)
     {
         _log.Error(Category, "Popup failed", ex);
+        _failed = true;
         try
         {
             if (_window.IsVisible)
@@ -181,6 +183,11 @@ internal sealed class PopupController : IPopupActions
             }
 
             EndPrewarm(new WindowInteropHelper(_window).Handle);
+
+            // Closing ends the layout passes of the broken tree, which would otherwise throw again
+            // and again; the controller puts a fresh window in its place.
+            _window.AllowCloseForShutdown();
+            _window.Close();
         }
         catch (Exception)
         {
@@ -206,6 +213,12 @@ internal sealed class PopupController : IPopupActions
     /// <summary>Must run synchronously in the WM_HOTKEY handler: the foreground right ends with the next input.</summary>
     public void Show(PopupSource source)
     {
+        if (_failed)
+        {
+            // Being replaced right now (see Failed).
+            return;
+        }
+
         var started = Stopwatch.GetTimestamp();
         if (_window.IsPrewarming)
         {
@@ -260,7 +273,7 @@ internal sealed class PopupController : IPopupActions
 
     public void Close(bool restoreFocus)
     {
-        if (!_window.IsVisible || _closing)
+        if (_failed || !_window.IsVisible || _closing)
         {
             // Giving the foreground back deactivates the popup, which calls Close again.
             return;
@@ -433,7 +446,26 @@ internal sealed class PopupController : IPopupActions
         if (captureLanded || loadFinished)
         {
             _refreshed = true;
-            LoadSnapshot();
+            try
+            {
+                LoadSnapshot();
+            }
+            catch (Exception ex)
+            {
+                Fail(ex);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A UI error surfaced outside the popup's own calls (e.g. from a deferred layout pass of its
+    /// list): take the window out of service, so it cannot keep failing on every layout pass.
+    /// </summary>
+    public void FailFromOutside(Exception ex)
+    {
+        if (!_failed)
+        {
+            Fail(ex);
         }
     }
 
