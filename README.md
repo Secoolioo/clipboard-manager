@@ -124,7 +124,7 @@ Follows your Windows language, switchable in Settings.
 2. Put it in a permanent folder, for example `%LOCALAPPDATA%\Programs\ClipboardManager\`.
 3. Double-click it. A short welcome window confirms it is running and starts with Windows.
 
-That's it – there is nothing to install. The EXE is large (~140 MB) because it contains the
+That's it – there is nothing to install. The EXE is large (~143 MB for x64, ~159 MB for ARM64) because it contains the
 complete .NET runtime; in exchange it needs no installation and stays at ~35 MB of memory.
 
 A short tour, the FAQ and the same downloads are also on the

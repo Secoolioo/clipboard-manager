@@ -43,7 +43,7 @@
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "Windows 10, Windows 11",
   "processorRequirements": "x64 or ARM64",
-  "softwareVersion": "0.10.1",
+  "softwareVersion": "0.10.2",
   "downloadUrl": "https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager.exe",
   "releaseNotes": "https://github.com/Secoolioo/clipboard-manager/blob/main/CHANGELOG.md",
   "license": "https://spdx.org/licenses/GPL-3.0-or-later.html",
@@ -649,7 +649,7 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
       </div>
       <div class="privacy-grid">
         <div class="card">
-          <h3>What the app guarantees – and tests on every build</h3>
+          <h3>What the app guarantees – most of it tested on every build</h3>
           <ul class="checks">
             <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg><div><strong>No network access unless you ask for it.</strong> <span>No telemetry, no automatic update checks, no account. Only a click on <em>Check for updates</em> contacts GitHub, and nothing about you or your clipboard is sent.</span></div></li>
             <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg><div><strong>Password managers are respected.</strong> <span>Content marked “do not record” is never read – KeePass, KeePassXC, Bitwarden, Proton Pass and Chrome/Edge password fields set these markers.</span></div></li>
@@ -663,6 +663,7 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
           <h3><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>Honest limits</h3>
           <p>The history database is stored unencrypted in your user profile, protected by Windows file permissions like any other app data, so software running under your account can read it. Remnants on SSDs, in shadow copies or in the page file can't be ruled out; BitLocker protects the disk.</p>
           <p>Passwords cannot be recognized by their shape, so use <em>pause</em> or <em>ignore next copy</em> for those if your password manager does not mark them.</p>
+          <p>Company crash-dump policies or a dump you create yourself can still contain history – never attach dumps to public issues.</p>
           <p><a href="https://github.com/Secoolioo/clipboard-manager/blob/main/docs/privacy.md">Read exactly what is stored and where</a></p>
         </div>
       </div>
