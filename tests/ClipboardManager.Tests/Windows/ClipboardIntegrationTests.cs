@@ -204,41 +204,31 @@ public sealed class ClipboardIntegrationTests
     {
         Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
         Put(owner, "locked");
-        var held = new ManualResetEventSlim();
-        var release = new ManualResetEventSlim();
-        var opened = false;
-        var blocker = new Thread(() =>
-        {
-            // Clipboard listeners of the OS (history service, rdpclip) may still be reading the
-            // content just put there, so retry until this thread really holds the clipboard.
-            for (var i = 0; i < 200 && !opened; i++)
-            {
-                opened = User32.OpenClipboard(IntPtr.Zero);
-                if (!opened)
-                {
-                    Thread.Sleep(10);
-                }
-            }
 
-            held.Set();
-            if (opened)
+        // Only an open with a window locks the clipboard against OpenClipboard(NULL) of the
+        // reader. Listeners of the OS (history service, rdpclip) may still be reading the content
+        // just put there, so retry until this window really holds it. The dispatcher brings the
+        // continuation back to this thread, which has to close the clipboard again.
+        var held = false;
+        for (var i = 0; i < 200 && !held; i++)
+        {
+            held = User32.OpenClipboard(owner);
+            if (!held)
             {
-                release.Wait(5000);
-                User32.CloseClipboard();
+                await Task.Delay(10);
             }
-        });
-        blocker.Start();
-        held.Wait();
+        }
+
+        Assert.True(held, "test could not take the clipboard");
         try
         {
-            Assert.True(opened, "test could not take the clipboard");
             var snapshot = await ReadAsync(new ClipboardGate());
+
             Assert.Equal(SkipReason.ReadFailed, snapshot.ReaderSkip);
         }
         finally
         {
-            release.Set();
-            blocker.Join();
+            User32.CloseClipboard();
         }
     });
 }
