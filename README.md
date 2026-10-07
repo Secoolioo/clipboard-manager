@@ -127,6 +127,9 @@ Follows your Windows language, switchable in Settings.
 That's it – there is nothing to install. The EXE is large (~140 MB) because it contains the
 complete .NET runtime; in exchange it needs no installation and stays at ~35 MB of memory.
 
+A short tour, the FAQ and the same downloads are also on the
+[website](https://secoolioo.github.io/clipboard-manager/).
+
 > [!NOTE]
 > Early releases are not code-signed yet. Windows SmartScreen will say *"Windows protected your PC"*:
 > click **More info → Run anyway**. On PCs with **Smart App Control** turned on, unsigned apps cannot

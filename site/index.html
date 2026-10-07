@@ -137,6 +137,14 @@
     },
     {
       "@type": "Question",
+      "name": "Ctrl+Shift+V already does something in my apps?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In some apps (Word, Teams, browsers) it means paste as plain text, and in Windows Terminal it pastes. Clipboard Manager takes over the shortcut everywhere while it runs, so if you rely on it, pick another one in Settings."
+      }
+    },
+    {
+      "@type": "Question",
       "name": "Does it run on Windows 10 and on ARM PCs?",
       "acceptedAnswer": {
         "@type": "Answer",
@@ -148,7 +156,7 @@
       "name": "Why is the EXE so large?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "The EXE is about 140 MB because it contains the complete .NET runtime. In exchange it needs no installation and uses only about 35 MB of memory and practically no CPU while it waits in the background."
+        "text": "The x64 EXE is about 143 MB and the ARM64 EXE about 159 MB because each contains the complete .NET runtime. In exchange it needs no installation and uses only about 35 MB of memory and practically no CPU while it waits in the background. The x64 ZIP is a smaller download of about 61 MB; extract it first."
       }
     }
   ]
@@ -274,6 +282,8 @@ h1 .accent { display: block; background: linear-gradient(100deg, var(--accent) 1
 }
 .btn:hover { color: var(--text); border-color: var(--accent); background: var(--surface-2); }
 .btn .star { color: #FFD166; }
+.mobile-note { display: none; max-width: 34rem; margin: 0 auto 24px; padding: 14px 18px; border: 1px solid var(--line-strong); border-radius: 14px; background: rgba(22, 214, 122, .08); color: var(--text); font-size: 1rem; text-align: left; }
+.mobile-note .icon { color: var(--accent); margin-top: .2em; }
 .alt-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; margin: 18px 0 0; padding: 0; list-style: none; font-size: .95rem; }
 .alt-links a { color: var(--muted); }
 .alt-links a:hover { color: var(--text); }
@@ -366,7 +376,10 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
 .howto li::marker { color: var(--accent); font-weight: 700; }
 .howto strong { color: var(--text); }
 .note { border-left: 4px solid #FFD166; }
-.note p { color: var(--muted); font-size: 1rem; }
+.note p, .note li { color: var(--muted); font-size: 1rem; }
+.note ul { margin: 0 0 1em; padding-left: 1.2em; display: grid; gap: 8px; }
+.note li::marker { color: #FFD166; }
+.note strong { color: var(--text); }
 
 /* FAQ */
 .faq { max-width: 860px; margin: 0 auto; display: grid; gap: 12px; }
@@ -394,14 +407,16 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
 .site-footer a { color: var(--muted); }
 .site-footer a:hover { color: var(--text); }
 .site-footer p { margin: 0; }
-.no-trackers { display: inline-flex; align-items: center; gap: 8px; color: var(--text); }
-.no-trackers .icon { color: var(--accent); }
+.no-trackers { display: flex; align-items: flex-start; gap: 8px; color: var(--text); }
+.no-trackers .icon { color: var(--accent); margin-top: .2em; }
 
 @media (max-width: 560px) {
   section { padding: 56px 0; }
   .hero { padding-top: 20px; }
   .site-nav ul { gap: 4px 16px; }
-  .btn-download { width: 100%; justify-content: center; gap: 12px; padding: 14px 16px; }
+  .site-nav .nav-gh-item { display: none; }
+  .cta .btn-download, .cta .btn-star { width: 100%; justify-content: center; }
+  .btn-download { gap: 12px; padding: 14px 16px; }
   .btn-download .label strong { font-size: 1.12rem; }
   .btn-download .label span { font-size: .8rem; }
   .card { padding: 22px; }
@@ -409,6 +424,26 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
   table { font-size: .94rem; }
   th, td { padding: 12px 14px; }
   tbody th { white-space: normal; }
+}
+
+/* Phones and tablets: the app needs a Windows PC, so starring comes first and downloading second. */
+@media (hover: none) and (pointer: coarse) {
+  .mobile-note { display: flex; gap: 12px; }
+  .cta .btn-star {
+    order: -1;
+    padding: 16px 28px;
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+    color: var(--ink);
+    font-size: 1.12rem;
+    font-weight: 750;
+    box-shadow: 0 10px 34px rgba(22, 214, 122, .34), inset 0 1px 0 rgba(255, 255, 255, .35);
+  }
+  .cta .btn-star .star { color: var(--ink); }
+  .cta .btn-download { gap: 10px; padding: 11px 18px; border: 1px solid var(--line-strong); background: rgba(15, 31, 26, .7); color: var(--text); box-shadow: none; }
+  .cta .btn-download .icon { width: 22px; height: 22px; }
+  .cta .btn-download .label strong { font-size: 1rem; font-weight: 650; }
+  .cta .btn-download .label span { font-size: .8rem; }
 }
 </style>
 </head>
@@ -427,7 +462,7 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
         <li><a href="#win-v">Why not Win+V?</a></li>
         <li><a href="#privacy">Privacy</a></li>
         <li><a href="#faq">FAQ</a></li>
-        <li><a class="nav-gh" href="https://github.com/Secoolioo/clipboard-manager">GitHub</a></li>
+        <li class="nav-gh-item"><a class="nav-gh" href="https://github.com/Secoolioo/clipboard-manager">GitHub</a></li>
       </ul>
     </nav>
   </div>
@@ -439,26 +474,27 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
       <div class="hero-copy">
         <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Free &amp; open source · Windows 11 &amp; 10</p>
         <h1 id="hero-title">Clipboard Manager for Windows <span class="accent">– free Win+V alternative</span></h1>
-        <p class="lead">Never lose something you copied again. <strong>Clipboard Manager</strong> keeps your clipboard history on Windows 11 and Windows 10 – searchable, pinned and still there after a reboot. One portable EXE, no account, no cloud.</p>
+        <p class="lead">Get back anything you copied – even after a reboot. <strong>Clipboard Manager</strong> keeps your clipboard history on Windows 11 and Windows 10, searchable as you type and with pinned snippets. One portable EXE, no account, no cloud.</p>
         <p class="combo">
           <span><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd></span>
           <span><span class="arrow" aria-hidden="true">→</span><span class="visually-hidden">, then</span> type a few letters</span>
           <span><span class="arrow" aria-hidden="true">→</span><span class="visually-hidden">, then press</span> <kbd>Enter</kbd></span>
         </p>
+        <p class="mobile-note"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span>On your phone? Clipboard Manager runs on Windows PCs – star or bookmark it and open this page on your computer.</span></p>
         <div class="cta">
           <a class="btn-download" href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager.exe">
             <svg class="icon icon-fill" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4.6 10.4 3.6v7.1H3zM11.4 3.4 21 2v8.7h-9.6zM3 11.7h7.4v7.1L3 17.8zM11.4 11.7H21V20.6l-9.6-1.4z"/></svg>
-            <span class="label"><strong>Download for Windows</strong><span>Free · x64 · version 0.10.1 · no installer</span></span>
+            <span class="label"><strong>Download for Windows</strong><span>Free · x64 · no installer</span></span>
           </a>
-          <a class="btn" href="https://github.com/Secoolioo/clipboard-manager">
+          <a class="btn btn-star" href="https://github.com/Secoolioo/clipboard-manager">
             <svg class="icon icon-fill" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
-            View on GitHub
+            Star on GitHub
           </a>
         </div>
         <ul class="alt-links">
           <li><a href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager-arm64.exe">Download for ARM64</a></li>
+          <li><a href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager-x64.zip">x64 ZIP (~61 MB, extract it first)</a></li>
           <li><a href="https://github.com/Secoolioo/clipboard-manager/releases/latest">All downloads &amp; release notes</a></li>
-          <li><a href="https://github.com/Secoolioo/clipboard-manager"><span class="star" aria-hidden="true">★</span> Star on GitHub</a></li>
         </ul>
         <ul class="trust">
           <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 7"/></svg>No account</li>
@@ -470,7 +506,8 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
       <figure class="hero-media">
         <div class="shot">
           <picture>
-            <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/popup-dark.png">
+            <source media="(max-width: 560px)" srcset="assets/readme/popup-dark-narrow.png" width="876" height="1040">
+            <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/popup-dark.png" width="1704" height="1104">
             <img src="assets/readme/demo.gif" width="852" height="552" fetchpriority="high" alt="Clipboard Manager in action: typing “docker” filters the clipboard history instantly, and Enter copies the selected entry.">
           </picture>
         </div>
@@ -508,8 +545,8 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
     <div class="wrap">
       <div class="section-head">
         <span class="kicker">Features</span>
-        <h2 id="features-title">Everything a clipboard manager needs – nothing you have to configure</h2>
-        <p>Install it once, then forget about it until the moment it saves you.</p>
+        <h2 id="features-title">The essentials, done right – nothing to configure</h2>
+        <p>Set it up once, then forget about it until the moment it saves you.</p>
       </div>
       <ul class="features">
         <li class="card">
@@ -556,17 +593,11 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
 
       <div class="gallery">
         <figure>
-          <picture>
-            <source media="(prefers-color-scheme: light)" srcset="assets/readme/popup-light.png">
-            <img src="assets/readme/popup-dark.png" width="1704" height="1104" loading="lazy" decoding="async" alt="The Clipboard Manager history window with pinned entries, recent history, a preview pane and key hints.">
-          </picture>
+          <img src="assets/readme/popup-dark.png" width="1704" height="1104" loading="lazy" decoding="async" alt="The Clipboard Manager history window with pinned entries, recent history, a preview pane and key hints.">
           <figcaption>Pinned snippets on top, recent history below, preview on the right.</figcaption>
         </figure>
         <figure>
-          <picture>
-            <source media="(prefers-color-scheme: light)" srcset="assets/readme/search-light.png">
-            <img src="assets/readme/search-dark.png" width="1704" height="1104" loading="lazy" decoding="async" alt="Searching the clipboard history for “docker” highlights every match.">
-          </picture>
+          <img src="assets/readme/search-dark.png" width="1704" height="1104" loading="lazy" decoding="async" alt="Searching the clipboard history for “docker” highlights every match.">
           <figcaption>Every word you type must match – matches are highlighted.</figcaption>
         </figure>
       </div>
@@ -630,7 +661,7 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
         </div>
         <div class="card limits">
           <h3><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>Honest limits</h3>
-          <p>The history database is stored unencrypted in your user profile, protected by Windows file permissions like any other app data – software running under your account can read it. Use BitLocker for the disk.</p>
+          <p>The history database is stored unencrypted in your user profile, protected by Windows file permissions like any other app data, so software running under your account can read it. Remnants on SSDs, in shadow copies or in the page file can't be ruled out; BitLocker protects the disk.</p>
           <p>Passwords cannot be recognized by their shape, so use <em>pause</em> or <em>ignore next copy</em> for those if your password manager does not mark them.</p>
           <p><a href="https://github.com/Secoolioo/clipboard-manager/blob/main/docs/privacy.md">Read exactly what is stored and where</a></p>
         </div>
@@ -648,15 +679,20 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
       <div class="start-grid">
         <div class="card">
           <ol class="howto">
-            <li>Download <strong><a href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager.exe">ClipboardManager.exe</a></strong> (or <a href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager-arm64.exe">ClipboardManager-arm64.exe</a> for ARM PCs).</li>
+            <li>Download <strong><a href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager.exe">ClipboardManager.exe</a></strong> (or <a href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager-arm64.exe">ClipboardManager-arm64.exe</a> for ARM PCs, or the smaller <a href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager-x64.zip">ClipboardManager-x64.zip</a> – extract it first).</li>
             <li>Put it in a permanent folder, for example <code>%LOCALAPPDATA%\Programs\ClipboardManager\</code>.</li>
             <li><strong>Double-click it.</strong> A short welcome window confirms it is running and starts with Windows.</li>
             <li>Copy something, then press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>.</li>
           </ol>
         </div>
         <div class="card note">
-          <h3>“Windows protected your PC”?</h3>
-          <p>Early releases are not code-signed yet, so SmartScreen may warn you. Click <strong>More info</strong>, then <strong>Run anyway</strong>.</p>
+          <h3>Seeing a warning?</h3>
+          <p>Early releases are not code-signed yet, so Windows and your browser may be cautious about a new download:</p>
+          <ul>
+            <li>If your browser says the file <em>isn't commonly downloaded</em>, choose <strong>Keep</strong> (in Edge it is in the <strong>…</strong> menu of the download).</li>
+            <li>If SmartScreen says <em>“Windows protected your PC”</em>, click <strong>More info</strong>, then <strong>Run anyway</strong>.</li>
+            <li>On PCs with <strong>Smart App Control</strong> turned on, unsigned apps can't start at all. Code signing is <a href="https://github.com/Secoolioo/clipboard-manager/blob/main/CODE_SIGNING_POLICY.md">planned</a>.</li>
+          </ul>
           <p>Want to be sure? Every release publishes SHA-256 hashes and a GitHub build attestation: <code>gh attestation verify ClipboardManager.exe --repo Secoolioo/clipboard-manager</code></p>
         </div>
       </div>
@@ -713,6 +749,12 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
           </div>
         </details>
         <details>
+          <summary><h3>Ctrl+Shift+V already does something in my apps?</h3></summary>
+          <div class="answer">
+            <p>In some apps (Word, Teams, browsers) it means paste as plain text, and in Windows Terminal it pastes. Clipboard Manager takes over the shortcut everywhere while it runs, so if you rely on it, pick another one in Settings.</p>
+          </div>
+        </details>
+        <details>
           <summary><h3>Does it run on Windows 10 and on ARM PCs?</h3></summary>
           <div class="answer">
             <p>Windows 11 is fully supported and Windows 10 22H2 works on a best-effort basis. There are native builds for x64 and ARM64. No .NET installation, no installer and no administrator rights are needed.</p>
@@ -721,7 +763,7 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
         <details>
           <summary><h3>Why is the EXE so large?</h3></summary>
           <div class="answer">
-            <p>The EXE is about 140 MB because it contains the complete .NET runtime. In exchange it needs no installation and uses only about 35 MB of memory and practically no CPU while it waits in the background.</p>
+            <p>The x64 EXE is about 143 MB and the ARM64 EXE about 159 MB because each contains the complete .NET runtime. In exchange it needs no installation and uses only about 35 MB of memory and practically no CPU while it waits in the background. The <a href="https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager-x64.zip">x64 ZIP</a> is a smaller download of about 61 MB; extract it first.</p>
           </div>
         </details>
       </div>
@@ -739,7 +781,7 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
             <svg class="icon icon-fill" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4.6 10.4 3.6v7.1H3zM11.4 3.4 21 2v8.7h-9.6zM3 11.7h7.4v7.1L3 17.8zM11.4 11.7H21V20.6l-9.6-1.4z"/></svg>
             <span class="label"><strong>Download for Windows</strong><span>Windows 11 &amp; 10 · x64</span></span>
           </a>
-          <a class="btn" href="https://github.com/Secoolioo/clipboard-manager"><span class="star" aria-hidden="true">★</span> Star on GitHub</a>
+          <a class="btn btn-star" href="https://github.com/Secoolioo/clipboard-manager"><span class="star" aria-hidden="true">★</span> Star on GitHub</a>
         </div>
       </div>
     </div>
@@ -757,7 +799,7 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
       <li><a href="https://github.com/Secoolioo/clipboard-manager/issues/new/choose">Report a bug</a></li>
       <li><a href="https://github.com/Secoolioo/.github/blob/main/DONATE.md">Donate</a></li>
     </ul>
-    <p class="no-trackers"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>This page has no cookies, no analytics and no trackers – just like the app.</p>
+    <p class="no-trackers"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span>This page has no cookies, no analytics and no trackers – just like the app. Hosted on GitHub Pages; <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a> applies to the hosting.</span></p>
     <p>Clipboard Manager is free software under the <a href="https://github.com/Secoolioo/clipboard-manager/blob/main/LICENSE">GNU General Public License v3.0 or later</a>. © 2026 Secoolioo and contributors.</p>
   </div>
 </footer>

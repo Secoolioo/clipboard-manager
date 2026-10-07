@@ -28,6 +28,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Check the website version
+        shell: pwsh
+        run: |
+          $props = @(Select-String -Path Directory.Build.props -Pattern '<Version>([^<]+)</Version>')
+          $site = @(Select-String -Path site/index.html -Pattern '"softwareVersion":\s*"([^"]+)"')
+          if ($props.Count -ne 1 -or $site.Count -ne 1) {
+            "::error::Expected exactly one <Version> in Directory.Build.props and one softwareVersion in site/index.html"
+            exit 1
+          }
+          $expected = $props[0].Matches[0].Groups[1].Value
+          $actual = $site[0].Matches[0].Groups[1].Value
+          if ($actual -ne $expected) {
+            "::error file=site/index.html::softwareVersion is $actual, but Directory.Build.props says $expected"
+            exit 1
+          }
+          "Website version matches Directory.Build.props: $expected"
+
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json

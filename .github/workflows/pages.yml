@@ -1,6 +1,6 @@
 name: Pages
 
-# Publishes site/ plus the README images and brand assets to GitHub Pages.
+# Publishes site/ plus the files from assets/ that it references to GitHub Pages.
 # Repository setting required once: Settings -> Pages -> Source: GitHub Actions.
 on:
   push:
@@ -40,18 +40,34 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf _site
-          mkdir -p _site/assets
+          mkdir -p _site
           cp -R site/. _site/
-          cp -R assets/readme assets/brand _site/assets/
 
-          # Fail before deploying if the page points at a file that is not in the artifact.
+          # Every same-site path the site uses: relative src/srcset/href values in the page, plus
+          # absolute URLs below the site root (canonical, social images, JSON-LD, sitemap, robots).
+          root='https://secoolioo.github.io/clipboard-manager/'
+          {
+            grep -oE '(src|srcset|href)="[^"#:?]+"' site/index.html | sed -E 's/^[a-z]+="//; s/"$//'
+            grep -ohE 'https://secoolioo\.github\.io/clipboard-manager/[^"<>#?[:space:]]*' site/* | sed "s|^$root||"
+          } | sort -u > "$RUNNER_TEMP/site-refs.txt"
+
+          # Copy only the referenced repository assets, then fail before deploying if anything the
+          # site points at is not in the artifact.
           missing=0
-          for ref in $(grep -oE '(src|srcset|href)="[^"#:?]+"' _site/index.html | sed -E 's/^[a-z]+="//; s/"$//' | sort -u); do
+          while IFS= read -r ref; do
+            case "$ref" in
+              assets/*)
+                if [ -f "$ref" ]; then
+                  mkdir -p "_site/$(dirname "$ref")"
+                  cp "$ref" "_site/$ref"
+                fi
+                ;;
+            esac
             if [ ! -e "_site/$ref" ]; then
               echo "::error file=site/index.html::references missing file $ref"
               missing=1
             fi
-          done
+          done < "$RUNNER_TEMP/site-refs.txt"
           exit "$missing"
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
