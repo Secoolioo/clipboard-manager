@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-07
+
+Faster search while typing and more resilience, after a 2,000-cycle stress test of the popup.
+
+### Changed
+
+- Typing in the search box is several times faster: the list is updated in place and keeps its
+  rows instead of rebuilding all of them (150 entries: from 80–120 ms to 12–35 ms per keystroke).
+- The compact popup shows only the copy, preview and close hints, so the hint bar stays on one line.
+
+### Fixed
+
+- If the popup keeps failing, it pauses for a few minutes with one notice and then tries again,
+  instead of staying unavailable until a restart; errors in other windows no longer affect it.
+- A blocked autostart entry (security software, policy) no longer stops the app from starting.
+- Opening the data folder no longer fails when Explorer is blocked.
+
 ## [0.10.1] - 2026-10-07
 
 More stability: the app keeps running even if part of its window ever fails again.
@@ -82,7 +99,8 @@ First public release.
 - Single self-contained EXE for x64 and ARM64, self-test mode, SHA-256 hashes and build provenance
   attestations for releases.
 
-[Unreleased]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.2...HEAD
+[0.10.2]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/Secoolioo/clipboard-manager/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/Secoolioo/clipboard-manager/releases/tag/v0.9.0
