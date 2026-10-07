@@ -56,6 +56,26 @@ try {
     $pattern = "(?ms)^## \[$([regex]::Escape($Version))\][^\n]*\n(.*?)(?=^## \[|\z)"
     $match = [regex]::Match($changelog, $pattern)
     $notes = if ($match.Success) { $match.Groups[1].Value.Trim() } else { "See CHANGELOG.md." }
+    $base = "https://github.com/Secoolioo/clipboard-manager/releases/download/v$Version"
+    $notes += @"
+
+
+### Download
+
+| File | For |
+|---|---|
+| [**ClipboardManager.exe**]($base/ClipboardManager.exe) | Windows 10 / 11, x64 – just run it, no installer, no admin rights |
+| [ClipboardManager-arm64.exe]($base/ClipboardManager-arm64.exe) | Windows 11 on ARM |
+| [ClipboardManager-x64.zip]($base/ClipboardManager-x64.zip) | the x64 EXE plus license files, smaller download |
+
+Already installed? *Settings → About → Check for updates* installs new versions in place (from
+0.10.0 on); settings and history are kept.
+
+> [!NOTE]
+> The EXE is not code-signed yet, so Windows SmartScreen may show *Windows protected your PC*:
+> click *More info → Run anyway*. Verify the download with ``SHA256SUMS.txt`` or
+> ``gh attestation verify ClipboardManager.exe -R Secoolioo/clipboard-manager``.
+"@
     [System.IO.File]::WriteAllText("$root/artifacts/release-notes.md", $notes + "`n", [System.Text.UTF8Encoding]::new($false))
 
     Get-ChildItem $Output | ForEach-Object { "{0,-32} {1,10:N1} MB" -f $_.Name, ($_.Length / 1MB) }

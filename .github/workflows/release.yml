@@ -103,6 +103,7 @@ jobs:
     # The only job with write access. It runs no repository code: download, attest, upload.
     permissions:
       contents: write
+      discussions: write
       id-token: write
       attestations: write
     steps:
@@ -127,5 +128,6 @@ jobs:
           PRERELEASE: ${{ needs.build.outputs.prerelease }}
         run: |
           flags=(--verify-tag --title "Clipboard Manager $VERSION" --notes-file artifacts/release-notes.md)
-          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          # Final releases also open an announcement thread that watchers of the Discussions get.
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); else flags+=(--discussion-category Announcements); fi
           gh release create "$TAG" artifacts/release/* --repo "$GITHUB_REPOSITORY" "${flags[@]}"

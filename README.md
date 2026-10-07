@@ -16,12 +16,15 @@
 **A fast, private clipboard history for Windows.**<br>
 Copy as usual. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>. Find anything you copied – even after a reboot.
 
-[**Download**](https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager.exe) ·
+<sub>Free &amp; open source · one portable EXE, no installer, no admin rights · Windows 10 / 11 · x64 + ARM64 · updates in one click</sub>
+
+[**⬇ Download for Windows**](https://github.com/Secoolioo/clipboard-manager/releases/latest/download/ClipboardManager.exe) ·
 [Features](#features) ·
 [Shortcuts](#keyboard-first) ·
 [Privacy](#privacy) ·
 [Performance](#performance) ·
 [Build](#build-from-source) ·
+[Feedback](https://github.com/Secoolioo/clipboard-manager/discussions) ·
 [Support](#support-the-project)
 
 </div>
@@ -53,6 +56,14 @@ cloud, no telemetry, and practically zero load while you are not using it.
 | Password-manager markers | respected | respected |
 | Sync to the cloud | optional | never – local only |
 | Images, HTML | yes | not yet (text only) |
+
+### And Ditto or CopyQ?
+
+Both are excellent and do more – images, sync, scripting, lots of options. Clipboard Manager is
+deliberately smaller: zero configuration, a window that is ready the moment you press the shortcut,
+focus that returns to where you were, a modern Windows 11 look, and a strict local-only design.
+If that is what you want from a clipboard tool, give it a try – and
+[tell us what is missing](https://github.com/Secoolioo/clipboard-manager/discussions/categories/ideas).
 
 ## Features
 
@@ -89,6 +100,9 @@ Fluent design, light, dark or system theme, follows your accent color.
 
 **🌍 English & German**<br>
 Follows your Windows language, switchable in Settings.
+
+**🔄 One-click updates**<br>
+*Check for updates* installs a new version in place – verified, settings and history kept.
 
 </td>
 </tr>
@@ -248,6 +262,9 @@ decisions are described in [docs/architecture.md](docs/architecture.md).
 ## Contributing
 
 Bug reports, ideas and pull requests are welcome – see [CONTRIBUTING.md](CONTRIBUTING.md).
+Questions and ideas go to [Discussions](https://github.com/Secoolioo/clipboard-manager/discussions),
+bugs to [Issues](https://github.com/Secoolioo/clipboard-manager/issues/new/choose). Want to add a
+language? The UI texts live in two files – see [Translations](CONTRIBUTING.md#translations).
 Security issues: please follow [SECURITY.md](SECURITY.md).
 
 ## Support the project

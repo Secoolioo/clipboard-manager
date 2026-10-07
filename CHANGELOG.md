@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-07
+
+Crash fixes from the first testers, a built-in update button and a quieter start with Windows.
+
 ### Added
 
 - In-app update check: *Settings → About → Check for updates* (also *Check for updates…* in the tray
@@ -62,5 +66,6 @@ First public release.
 - Single self-contained EXE for x64 and ARM64, self-test mode, SHA-256 hashes and build provenance
   attestations for releases.
 
-[Unreleased]: https://github.com/Secoolioo/clipboard-manager/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/Secoolioo/clipboard-manager/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/Secoolioo/clipboard-manager/releases/tag/v0.9.0

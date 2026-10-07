@@ -10,6 +10,8 @@
     <SatelliteResourceLanguages>en;de</SatelliteResourceLanguages>
 
     <Product>Clipboard Manager</Product>
+    <!-- Release builds pass -p:Version from the tag; this is the version of local builds. -->
+    <Version>0.10.0</Version>
     <Company>Secoolioo</Company>
     <Authors>Secoolioo</Authors>
     <Copyright>Copyright (C) 2026 Secoolioo and contributors</Copyright>
