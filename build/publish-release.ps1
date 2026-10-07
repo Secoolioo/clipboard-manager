@@ -75,6 +75,10 @@ Already installed? *Settings → About → Check for updates* installs new versi
 > The EXE is not code-signed yet, so Windows SmartScreen may show *Windows protected your PC*:
 > click *More info → Run anyway*. Verify the download with ``SHA256SUMS.txt`` or
 > ``gh attestation verify ClipboardManager.exe -R Secoolioo/clipboard-manager``.
+
+Clipboard Manager is free and stays free. If it saves you time and you'd like to support further
+development, a small [Solana donation](https://github.com/Secoolioo/.github/blob/main/DONATE.md) is
+welcome – entirely optional; a ⭐, a bug report or telling a friend helps just as much.
 "@
     [System.IO.File]::WriteAllText("$root/artifacts/release-notes.md", $notes + "`n", [System.Text.UTF8Encoding]::new($false))
 
