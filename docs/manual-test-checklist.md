@@ -18,7 +18,14 @@ Run before a release on the CI artifact. Use demo text, never real secrets.
 
 - [ ] Copy text in Notepad, a browser, VS Code, Windows Terminal, Excel → each appears once, newest on top.
 - [ ] Copy the same text again → moves to the top, no duplicate row.
-- [ ] Copy an image or files → no entry; the popup shows "not text".
+- [ ] Win+Shift+S screenshot, *Copy image* in Chrome/Edge/Firefox, a picture in Paint and in Word → each appears once with a thumbnail; Tab shows the picture sharply; the same picture again moves to the top.
+- [ ] Enter on an image entry, then paste into Paint, Word, Teams, a browser text box (e.g. GitHub), Discord and Photoshop/GIMP → the picture arrives; a transparent PNG keeps its transparency where the app supports it and is white elsewhere.
+- [ ] Copy Excel cells (also empty ones) → text entry or nothing, never a picture of the cells.
+- [ ] Copy files in Explorer → no entry; the popup shows "not text or an image".
+- [ ] Settings → *Save images* off → a screenshot is not stored, the popup says "saving images is off"; existing pictures stay.
+- [ ] Type "image" (German UI: "Bild") or a size like "1920" → only matching pictures are listed.
+- [ ] Memory-only mode: copy a few screenshots, exit, start again → gone; Task Manager shows the memory drop after *Clear history*.
+- [ ] A 3×4K screenshot (Print Screen with three monitors) → stored, the app stays responsive, private bytes return to normal shortly after.
 - [ ] KeePass / KeePassXC / Bitwarden / Proton Pass / 1Password / Chrome password field / Edge InPrivate: copy a password → not stored (note results per app in the PR).
 - [ ] Pause 5 minutes → copies are not stored, banner and icon show the pause, recording resumes on time (also after sleep).
 - [ ] Ignore next copy → exactly one copy is skipped.
@@ -51,7 +58,7 @@ Run before a release on the CI artifact. Use demo text, never real secrets.
 
 ## Accessibility and display
 
-- [ ] Narrator: opening announces the window; arrow keys read each entry (text, pinned, current, time).
+- [ ] Narrator: opening announces the window; arrow keys read each entry (text or "Image, W by H pixels", pinned, current, time).
 - [ ] All four High Contrast themes are readable.
 - [ ] Settings → Accessibility → Text size 150 % → popup scales, nothing clipped.
 - [ ] Two monitors with different scaling → popup is sharp and correctly sized on both.

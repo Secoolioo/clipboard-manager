@@ -104,8 +104,8 @@
           <path d="M29 88h9l5 5v13h-14z" fill="none" stroke="#5F7A6D" stroke-width="1.6" stroke-linejoin="round"/>
           <text class="t" x="58" y="104" font-size="16" fill="#2E4A3E">git status</text>
           <rect x="344" y="89" width="70" height="20" rx="5" fill="#078A5A"/><text class="t" x="379" y="104" font-size="11" font-weight="700" text-anchor="middle" fill="#FFFFFF">CURRENT</text><text class="t" x="478" y="104" font-size="13" text-anchor="end" fill="#5F7A6D">just now</text>
-          <path d="M29 140h9l5 5v13h-14z" fill="none" stroke="#5F7A6D" stroke-width="1.6" stroke-linejoin="round"/>
-          <text class="t" x="58" y="156" font-size="16" fill="#2E4A3E">git commit -m &quot;Add search highlighting&quot;</text>
+          <rect x="28" y="140" width="17" height="14" rx="2" fill="none" stroke="#5F7A6D" stroke-width="1.6"/><path d="M30 151l4-4 3 3 2-2 4 4" fill="none" stroke="#5F7A6D" stroke-width="1.6" stroke-linejoin="round"/><rect x="58" y="139" width="40" height="24" rx="3" fill="#FFFFFF" stroke="#D5E6DD"/><rect x="64" y="153" width="5" height="6" rx="1" fill="#078A5A"/><rect x="72" y="148" width="5" height="11" rx="1" fill="#078A5A"/><rect x="80" y="151" width="5" height="8" rx="1" fill="#078A5A"/><rect x="88" y="144" width="5" height="15" rx="1" fill="#078A5A"/>
+          <text class="t" x="108" y="156" font-size="16" fill="#2E4A3E">Image · 1920 × 1080</text>
           <text class="t" x="478" y="156" font-size="13" text-anchor="end" fill="#5F7A6D">2 min</text>
           <path d="M30 198h6a5 5 0 0 1 0 10h-6M44 198h-6a5 5 0 0 0 0 10h6" fill="none" stroke="#5F7A6D" stroke-width="1.8"/>
           <text class="t" x="58" y="208" font-size="16" fill="#2E4A3E">https://example.org/blog/keyboard-first</text>

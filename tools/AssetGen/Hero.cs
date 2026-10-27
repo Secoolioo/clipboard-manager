@@ -153,7 +153,7 @@ internal static class Hero
                 <g class="all">
                   <rect x="12" y="132" width="476" height="44" rx="8" fill="{{p.Selected}}"/>
                   {{Row(p, 104, "git status", "just now", current: true)}}
-                  {{Row(p, 156, "git commit -m \"Add search highlighting\"", "2 min")}}
+                  {{Row(p, 156, "Image · 1920 × 1080", "2 min", icon: "image")}}
                   {{Row(p, 208, "https://example.org/blog/keyboard-first", "9 min", icon: "link")}}
                   {{Row(p, 260, "docker logs -f --tail 100 web", "1 h")}}
                   {{Row(p, 312, "docker compose up -d", "3 h")}}
@@ -178,9 +178,14 @@ internal static class Hero
 
     private static string Row(Palette p, int baseline, string text, string time, bool current = false, string? bold = null, string icon = "doc")
     {
-        var glyph = icon == "link"
-            ? $"""<path d="M30 {baseline - 10}h6a5 5 0 0 1 0 10h-6M44 {baseline - 10}h-6a5 5 0 0 0 0 10h6" fill="none" stroke="{p.Muted}" stroke-width="1.8"/>"""
-            : $"""<path d="M29 {baseline - 16}h9l5 5v13h-14z" fill="none" stroke="{p.Muted}" stroke-width="1.6" stroke-linejoin="round"/>""";
+        var glyph = icon switch
+        {
+            "link" => $"""<path d="M30 {baseline - 10}h6a5 5 0 0 1 0 10h-6M44 {baseline - 10}h-6a5 5 0 0 0 0 10h6" fill="none" stroke="{p.Muted}" stroke-width="1.8"/>""",
+            "image" => $"""<rect x="28" y="{baseline - 16}" width="17" height="14" rx="2" fill="none" stroke="{p.Muted}" stroke-width="1.6"/><path d="M30 {baseline - 5}l4-4 3 3 2-2 4 4" fill="none" stroke="{p.Muted}" stroke-width="1.6" stroke-linejoin="round"/>"""
+                + Thumbnail(p, baseline),
+            _ => $"""<path d="M29 {baseline - 16}h9l5 5v13h-14z" fill="none" stroke="{p.Muted}" stroke-width="1.6" stroke-linejoin="round"/>""",
+        };
+        var textX = icon == "image" ? 108 : 58;
         var escaped = System.Security.SecurityElement.Escape(text);
         var content = bold is not null && text.StartsWith(bold, StringComparison.Ordinal)
             ? $"""<tspan font-weight="700" text-decoration="underline">{System.Security.SecurityElement.Escape(bold)}</tspan>{System.Security.SecurityElement.Escape(text[bold.Length..])}"""
@@ -190,8 +195,21 @@ internal static class Hero
             : string.Empty;
         return $"""
             {glyph}
-                      <text class="t" x="58" y="{baseline}" font-size="16" fill="{p.Row}">{content}</text>
+                      <text class="t" x="{textX}" y="{baseline}" font-size="16" fill="{p.Row}">{content}</text>
                       {badge}<text class="t" x="478" y="{baseline}" font-size="13" text-anchor="end" fill="{p.Muted}">{time}</text>
             """;
+    }
+
+    /// <summary>A tiny bar chart standing in for the thumbnail of a copied screenshot.</summary>
+    private static string Thumbnail(Palette p, int baseline)
+    {
+        var bars = new StringBuilder();
+        int[] heights = [6, 11, 8, 15];
+        for (var i = 0; i < heights.Length; i++)
+        {
+            bars.Append(System.Globalization.CultureInfo.InvariantCulture, $"""<rect x="{64 + (i * 8)}" y="{baseline + 3 - heights[i]}" width="5" height="{heights[i]}" rx="1" fill="{p.Accent}"/>""");
+        }
+
+        return $"""<rect x="58" y="{baseline - 17}" width="40" height="24" rx="3" fill="{p.Card}" stroke="{p.CardStroke}"/>{bars}""";
     }
 }

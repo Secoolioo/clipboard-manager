@@ -14,7 +14,7 @@
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-16d67a?style=for-the-badge&labelColor=0b1f17&logo=windows11&logoColor=white)](#requirements)
 
 **A fast, private clipboard history for Windows.**<br>
-Copy as usual. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>. Find anything you copied – even after a reboot.
+Copy as usual. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>. Find anything you copied – text and screenshots – even after a reboot.
 
 <sub>Free &amp; open source · one portable EXE, no installer, no admin rights · Windows 10 / 11 · x64 + ARM64 · updates in one click</sub>
 
@@ -38,10 +38,10 @@ Copy as usual. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>. Find anythin
 
 ## What it is
 
-Clipboard Manager runs quietly in the notification area and remembers the text you copy. When you
-need something again, one shortcut opens a small, keyboard-first window: type a few letters, press
-<kbd>Enter</kbd>, and the entry is back in your clipboard – and focus is back in the app you came
-from, so <kbd>Ctrl</kbd>+<kbd>V</kbd> just works.
+Clipboard Manager runs quietly in the notification area and remembers the text and pictures you
+copy. When you need something again, one shortcut opens a small, keyboard-first window: type a few
+letters, press <kbd>Enter</kbd>, and the entry is back in your clipboard – and focus is back in the
+app you came from, so <kbd>Ctrl</kbd>+<kbd>V</kbd> just works.
 
 It is built to be installed once and then forgotten: one EXE, starts with Windows, no account, no
 cloud, no telemetry, and practically zero load while you are not using it.
@@ -56,11 +56,12 @@ cloud, no telemetry, and practically zero load while you are not using it.
 | Exclude apps | – | yes (best effort, see [Privacy](#privacy)) |
 | Password-manager markers | respected | respected |
 | Sync to the cloud | optional | never – local only |
-| Images, HTML | yes | not yet (text only) |
+| Images (screenshots, pictures) | yes | yes, with a large preview |
+| Formatting (HTML) | yes | not yet (plain text) |
 
 ### And Ditto or CopyQ?
 
-Both are excellent and do more – images, sync, scripting, lots of options. Clipboard Manager is
+Both are excellent and do more – formatting, files, sync, scripting, lots of options. Clipboard Manager is
 deliberately smaller: zero configuration, a window that is ready the moment you press the shortcut,
 focus that returns to where you were, a modern Windows 11 look, and a strict local-only design.
 If that is what you want from a clipboard tool, give it a try – and
@@ -84,6 +85,10 @@ Keep frequently used snippets forever – pins never fall out of the history.
 
 **🔁 Smart duplicates**<br>
 Copying something again moves it to the top instead of adding a second row.
+
+**🖼️ Images too**<br>
+Screenshots and copied pictures get a thumbnail; <kbd>Tab</kbd> shows a large preview and
+<kbd>Enter</kbd> puts the picture back, transparency included. Type "image" to find them.
 
 </td>
 <td width="50%" valign="top">
@@ -165,7 +170,7 @@ releases page instead – it never asks for elevation.
 | <kbd>Enter</kbd> or click | Copy the entry, close, return to the previous app |
 | <kbd>Ctrl</kbd>+<kbd>P</kbd> | Pin / unpin |
 | <kbd>Shift</kbd>+<kbd>Del</kbd> | Delete the entry (<kbd>Ctrl</kbd>+<kbd>Z</kbd> brings it back) |
-| <kbd>Tab</kbd> | Show / hide the preview pane |
+| <kbd>Tab</kbd> | Show / hide the preview pane (text or picture) |
 | <kbd>Esc</kbd> | Close |
 
 The newest entry is usually what is already in your clipboard, so the window pre-selects the one
@@ -200,14 +205,22 @@ A clipboard manager sees everything you copy, so privacy is not a feature here �
 
 **Controls:** pause (5 / 30 / 60 min or until resumed), *ignore next copy*, exclude apps,
 "keep history in memory only" (unpinned entries never touch the disk), skip detected credentials
-(private keys and tokens with unambiguous formats), clear history, *remove everything*.
+(private keys and tokens with unambiguous formats), *save images* on/off, clear history, *remove
+everything*.
+
+**Images** follow the same rules as text: privacy markers, excluded apps, pause and *ignore next
+copy* are decided before a picture is read. Pictures are stored as PNG without metadata (no EXIF,
+no text chunks), together up to 128 MB for unpinned ones – the oldest pictures go first, texts are
+not affected.
 
 **Honest limits:** the history database is stored unencrypted in your user profile
 (`%LOCALAPPDATA%\Secoolioo\ClipboardManager`), protected by Windows file permissions like any app
 data – software running under your account can read it. Physical remnants on SSDs, in shadow copies
 or the page file can't be ruled out (use BitLocker). Windows does not always reveal which app
 copied something, so app exclusions are best effort, and passwords cannot be recognized by their
-shape – use *pause* or *ignore next copy* for those. Details: [docs/privacy.md](docs/privacy.md).
+shape – use *pause* or *ignore next copy* for those. Pictures are not inspected either: a screenshot
+of something sensitive stays until you delete it (or turn off *save images*). Details:
+[docs/privacy.md](docs/privacy.md).
 
 ## Settings
 
@@ -219,7 +232,7 @@ shape – use *pause* or *ignore next copy* for those. Details: [docs/privacy.md
 </p>
 
 Start with Windows (with a shortcut to the Windows startup-apps page) · Start menu entry · record on/off · language · shortcut recorder (rejects
-combinations that would break copy/paste) · maximum entries (25 – 5,000) · memory-only history ·
+combinations that would break copy/paste) · maximum entries (25 – 5,000) · save images · memory-only history ·
 clear history · detected-credential filter · screen-capture hiding · excluded apps (with "last
 ignored" status) · theme · check for updates · open data folder · licenses · remove everything.
 

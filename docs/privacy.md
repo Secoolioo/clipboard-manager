@@ -7,7 +7,7 @@ what it can and cannot protect.
 
 | File | Content |
 |---|---|
-| `%LOCALAPPDATA%\Secoolioo\ClipboardManager\history.db` (+ `-wal`) | your text history and pins (SQLite) |
+| `%LOCALAPPDATA%\Secoolioo\ClipboardManager\history.db` (+ `-wal`) | your history and pins (SQLite): texts, and pictures as PNG without metadata plus a small thumbnail |
 | `…\settings.json` | settings (no clipboard content) |
 | `…\logs\app.log`, `app.1.log` | technical warnings and errors only – never clipboard content, previews, hashes, window titles or exception messages; at most 2 MB |
 | `…\session.active` | empty marker used to detect an unclean shutdown |
@@ -25,21 +25,27 @@ of the running version, then exits.
 
 - Content marked by the source app as "do not record": `ExcludeClipboardContentFromMonitorProcessing`
   (any data), `CanIncludeInClipboardHistory` = 0, or `Clipboard Viewer Ignore`. This is the same
-  rule Windows' own clipboard history follows, and the app does not even read the text of such
-  content. KeePass (2.44+), KeePassXC, Bitwarden, Proton Pass and Chrome/Edge password fields set
+  rule Windows' own clipboard history follows, and the app does not even read such content – text
+  or picture. KeePass (2.44+), KeePassXC, Bitwarden, Proton Pass and Chrome/Edge password fields set
   these markers; other apps may not.
 - `CanUploadToCloudClipboard = 0` alone is *not* treated as private – it only forbids cloud sync and
   is set, for example, on content coming from Remote Desktop.
 - Copies while recording is paused, and the next copy after *Ignore next copy*. While paused the
   clipboard is not even opened.
-- Copies from excluded apps (best effort, see below).
+- Copies from excluded apps (best effort, see below). The decision is made before any text or
+  picture is copied into the app.
 - With *Don't save detected credentials* (on by default): texts containing private-key blocks or
   tokens with unambiguous formats (GitHub, AWS access key IDs, Slack, Stripe live keys, GitLab).
-- Text larger than 256K characters, images, files.
+- Text larger than 256K characters; pictures larger than 16,384 pixels on a side, 25 megapixels or
+  32 MB as PNG; files and formatting (HTML, RTF). When a copy holds both text and a picture (Excel
+  cells, Word), only the text is saved.
+- Any picture while *Save images* is off – the picture is not even read.
+- Metadata of copied pictures (EXIF, text chunks, color profiles): pictures are encoded anew from
+  their pixels, so nothing else of the original file is kept.
 - Whatever is already on the clipboard when the app starts: only copies made while it runs are recorded.
-- With *Keep history in memory only*: unpinned entries never reach the disk while the mode is on.
-  When you turn it off, the app asks whether the entries collected in memory should be saved or
-  discarded.
+- With *Keep history in memory only*: unpinned entries never reach the disk while the mode is on –
+  pictures included, which then use RAM (up to the 128 MB image budget). When you turn it off, the
+  app asks whether the entries collected in memory should be saved or discarded.
 
 ## Network
 
@@ -67,9 +73,14 @@ request to `api.github.com` for the latest release; *Install update* then downlo
   with a wrong size or SHA-256 and redirects outside GitHub are rejected.
 - A canary string never appears in the log, also not through exception messages.
 - After deleting an entry or clearing the history, its text is no longer present in any file in the
-  data folder (SQLite `secure_delete` plus WAL truncation) or in SQLite temp files.
+  data folder (SQLite `secure_delete` plus WAL truncation) or in SQLite temp files. The same holds
+  for the bytes of a deleted picture and its thumbnail.
 - In memory-only mode the text never appears in the data folder, including when switching the
-  mode on, and when switching it off with "discard".
+  mode on, and when switching it off with "discard"; neither do pictures.
+- Upgrading a database from 0.10 (schema 1) rebuilds its table; in memory-only mode no copy of an
+  unpinned entry is left behind in the file afterwards.
+- Pictures carrying a privacy marker, from an excluded app or copied while *Save images* is off are
+  not read (real-clipboard tests); metadata of a copied PNG is not stored.
 - Lowering the maximum number of entries scrubs the removed texts like a manual delete.
 - Our own writes, an emptied clipboard and repeated notifications for one copy never use up a
   pending *Ignore next copy*; a skipped copy is never read later by a pending read.
@@ -87,6 +98,9 @@ request to `api.github.com` for the latest release; *Install update* then downlo
   *Ignore next copy*.
 - **Passwords cannot be recognized.** Only unambiguous token formats are detected; there is
   deliberately no "looks random" heuristic that would silently drop legitimate text.
+- **Pictures are not inspected.** A screenshot of a password, a chat or a bank statement is stored
+  like any other picture until you delete it. Use *pause*, *ignore next copy* or turn off
+  *Save images* if that matters to you.
 - **Crash dumps.** The app tells Windows Error Reporting not to include memory contents. Company
   policies that collect full dumps (`LocalDumps`) or a dump you create yourself in Task Manager can
   still contain history – never attach dumps to public issues.

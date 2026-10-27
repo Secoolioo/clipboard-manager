@@ -6,7 +6,7 @@ Windows' own `winsqlite3.dll`).
 
 ```
 src/ClipboardManager.Core   net10.0          history store, capture policy, search, previews, settings, log, update rules
-src/ClipboardManager        net10.0-windows  WPF app: Win32 interop, windows, tray, updater, composition root
+src/ClipboardManager        net10.0-windows  WPF app: Win32 interop, image codec, windows, tray, updater, composition root
 tests/ClipboardManager.Tests                  unit, store, privacy, Windows integration tests
 tools/AssetGen                                icon, README screenshots, QR code, search benchmark (never shipped)
 build/                                        release, self-test and hygiene scripts used by CI
@@ -24,8 +24,11 @@ Three execution contexts, all idle without CPU load:
    WM_HOTKEY ─► PopupController             one OpenClipboard session:          exclusive lock, FULL sync)
    tray callbacks ─► TrayMenu                 markers → owner → exclusion     ── versioned change batches ──►
    TaskbarCreated, settings, session          → text (size-bounded)           HistoryIndex (UI thread)
- PopupWindow (pre-built, reused)            policy (secrets, blank, size)
- SettingsWindow (on demand)                 ──── capture ─────────────────►
+ PopupWindow (pre-built, reused)              or picture: header check, copy
+ SettingsWindow (on demand)                 close clipboard, then decode
+                                              picture → PNG + thumbnail
+                                            policy (secrets, blank, size)
+                                            ──── capture ─────────────────►
 ```
 
 - **HostWindow** is a hidden *top-level* window, not a message-only window: message-only windows do
@@ -35,13 +38,28 @@ Three execution contexts, all idle without CPU load:
   `OpenClipboard` session, so content cannot change between the privacy-marker check and the read.
   "Latest wins": bursts of notifications collapse into one read. A flood breaker pauses reading when
   a sync tool ping-pongs identical content.
+- **Pictures** are read only when the copy has no text (text wins, e.g. for Excel cells): the
+  registered `"PNG"` format first, then `CF_DIB`, which Windows synthesizes from `CF_BITMAP` and
+  `CF_DIBV5`, so no GDI is needed. Inside the clipboard session the header is checked against the
+  limits (16,384 px per side, 25 MP) and the bytes are copied into native memory; `ImageCodec`
+  decodes them after the clipboard was released. 24/32-bit DIBs are parsed directly (32-bit alpha
+  counts only for `BI_RGB` or an explicit alpha mask, and an all-zero alpha means "opaque"); other
+  layouts go through WIC's BMP decoder. The result is always encoded anew – a PNG at 96 DPI without
+  metadata, 24-bit when opaque – plus a thumbnail of at most 96×56 px, so the same picture copied as
+  PNG or as bitmap gives the same entry. WPF imaging (WIC) runs on the reader thread and on
+  thread-pool threads; everything that crosses threads is frozen.
 - **ClipboardWriter** writes only on explicit user action (never in reaction to a clipboard change),
   so the app cannot start a sync loop. An in-process gate keeps our reader and writer from racing.
+  A picture goes back as `"PNG"` (the stored bytes, with transparency) plus a 24-bit `CF_DIB`
+  composited on white for apps that only read bitmaps; the DIB is built off the UI thread.
 - **DbWorker** is the only code that touches SQLite. Every change is published as a versioned
   batch; the UI applies batches strictly in order, so a capture and a delete can never resurrect an
   entry.
 - **PopupWindow** is created once, pre-warmed invisibly (DWM-cloaked) and then only shown and
-  hidden. While open it works on a snapshot, so the list never shifts under the cursor.
+  hidden. While open it works on a snapshot, so the list never shifts under the cursor. Image rows
+  decode their thumbnail (kept in the index) the first time they are shown; the preview pane shows
+  it at once and loads the picture itself off the UI thread, one at a time and never during the
+  pre-warm.
 - **UpdateService** (`ClipboardManager.Updates`) is the only networking code; an instance exists
   only for one click on *Check for updates* or *Install update*. It asks the GitHub API for the
   latest release, then streams the EXE for the process architecture to `<exe>.new` while hashing
@@ -90,18 +108,30 @@ self-test). An update briefly leaves `<exe>.new` / `<exe>.old` next to the EXE; 
 deletes them.
 
 ```sql
-CREATE TABLE entries (
-  id INTEGER PRIMARY KEY, hash BLOB NOT NULL UNIQUE,      -- SHA-256 of the UTF-16 text
+CREATE TABLE entries (                                    -- schema version 2
+  id INTEGER PRIMARY KEY, hash BLOB NOT NULL UNIQUE,      -- SHA-256 of the UTF-16 text, or of a domain prefix + the PNG
+  kind INTEGER NOT NULL DEFAULT 0,                        -- 0 text, 1 image
   char_count INTEGER NOT NULL, line_count INTEGER NOT NULL,
+  width INTEGER NULL, height INTEGER NULL, byte_count INTEGER NOT NULL DEFAULT 0,  -- images: pixels, PNG size
   created_at INTEGER NOT NULL, last_used_at INTEGER NOT NULL, pinned_at INTEGER NULL,  -- Unix ms
   search_head TEXT NULL,                                  -- first 4,096 chars, only for longer texts
-  text TEXT NOT NULL                                      -- last column: loading the index never reads it
+  thumb BLOB NULL,                                        -- images: PNG thumbnail, part of the index
+  text TEXT NOT NULL,                                     -- '' for images; loading the index never reads long texts
+  image BLOB NULL                                         -- images: the PNG; read only to copy or preview
 );
 ```
 
-Memory-only mode attaches an in-memory database (`mem.entries`) for unpinned entries; pins stay in
+Large columns come last, so building the index never walks the overflow pages of a long text or a
+picture; the view the index reads (`temp.all_entries`) does not even contain `image`. Memory-only
+mode attaches an in-memory database (`mem.entries`) for unpinned entries; pins stay in
 `main.entries`. Migrations use `PRAGMA user_version`; a database from a newer version is never
-touched (the app falls back to memory). The registry holds only autostart state:
+touched (the app falls back to memory). Version 1 → 2 (0.11) rebuilds the table inside the migration
+transaction instead of `ALTER TABLE … ADD COLUMN`, which would append the new columns after `text`;
+`secure_delete` zeroes the old pages and the WAL is truncated afterwards.
+
+Retention keeps the newest unpinned entry in any case and then, newest first: at most *maximum
+entries* in total, texts within 20 million characters and pictures within 128 MB of PNG – each
+budget strictly oldest first within its kind, so pictures never push texts out and vice versa. The registry holds only autostart state:
 `HKCU\…\Run\Secoolioo.ClipboardManager` and `HKCU\Software\Secoolioo\ClipboardManager`
 (first-run and autostart decision).
 
@@ -109,14 +139,16 @@ touched (the app falls back to memory). The registry holds only autostart state:
 
 | Category | What | Where it runs |
 |---|---|---|
-| Unit | policy, secrets, search, previews, settings, hotkeys, popup selection rules, quiet-start rules, localization | everywhere |
-| Store | real SQLite: dedupe, retention + size budget, pins, undo, recovery, exclusive lock, ordering | everywhere |
-| Privacy | log never contains content, deleted/memory-only text never on disk, no networking outside the updater, no unexpected native calls | everywhere |
+| Unit | policy, secrets, search, previews, settings, hotkeys, popup selection rules and image preview loading, quiet-start rules, localization | everywhere |
+| Image codec | DIB layouts (24/32 bit, top-down, bit fields, V5 alpha, palettes), PNG, broken and oversized headers, metadata removal, same picture as PNG and DIB, thumbnails, the bitmap written back | everywhere |
+| Store | real SQLite: dedupe, retention + size and image budgets, pins, undo, images, the schema 1 → 2 migration, recovery, exclusive lock, ordering | everywhere |
+| Privacy | log never contains content, deleted/memory-only text and pictures never on disk, no networking outside the updater, no unexpected native calls | everywhere |
 | Update | SemVer order, asset choice, `SHA256SUMS.txt` and release JSON parsing, downloads against a fake GitHub (hash/size mismatch, foreign redirects, rate limit, offline), EXE swap and rollback on temp files | everywhere |
 | Windows | autostart against an isolated registry subtree, popup window behavior (cloaked) | everywhere |
-| Integration | the real clipboard: Unicode round trip, own writes, all privacy markers, locked clipboard, size limit | CI (`CM_INTEGRATION=1`) |
+| Integration | the real clipboard: Unicode round trip, own writes, all privacy markers, locked clipboard, size limit; pictures: capture, `"PNG"` before `CF_DIB`, text wins, images off, exclusion and markers, oversized headers, write → read round trip | CI (`CM_INTEGRATION=1`) |
 
-The published EXE is additionally run with `--selftest` in CI on x64 and ARM64.
+The published EXE is additionally run with `--selftest` in CI on x64 and ARM64; it includes the image
+codec (a 4K screenshot), and on x64 an image round trip through the real clipboard.
 
 ## Decision log
 
@@ -139,3 +171,4 @@ The published EXE is additionally run with `--selftest` in CI on x64 and ARM64.
 | 15 | **No initial capture at startup** | content copied while the app was not running (possibly during a pause or an "ignore next copy" of an earlier run) is not recorded | read the clipboard once at start |
 | 16 | **Updates only on an explicit click, swapped in place** | the privacy promise allows network access only when the user asks for it, and then only to GitHub; one EXE without an installer updates without admin rights: the verified download installs itself once the running version has exited – it moves the previous EXE to `*.old` and copies itself to the same path, so autostart entry and shortcuts stay valid; settings and history live in `%LOCALAPPDATA%`. Renaming the running EXE instead would leave a single-file process reading assemblies from the wrong file. `--finish-update <pid>` and `--updated-from <pid>` are a contract every later version must keep, or an update would leave no instance running | automatic or periodic checks, a separate updater EXE, MSIX/winget, an elevated installer |
 | 17 | **Quiet autostart** (below-normal priority, optional work and notices deferred) | sign-in is when every startup app competes for CPU and disk; in the first minute only capture and the hotkey matter, and a toast or window at login is noise | Task Scheduler with a start delay (hidden from users), a fixed sleep before starting (hotkey and capture would be missing), full start at normal priority |
+| 18 | **Pictures as normalized PNG**; text wins when a copy has both; `"PNG"` + 24-bit `CF_DIB` on white when copying back | one lossless, compact format whatever the source offered (PNG, bitmap, synthesized from GDI), so duplicates match and no metadata of the source survives; spreadsheet and document copies keep behaving as before; PNG keeps transparency for modern apps, the DIB on white looks right in Paint and older programs, and Windows synthesizes the other bitmap formats from it | storing the source bytes as they came (keeps metadata, bitmaps are ~4× larger, duplicates by source), images over text, writing `CF_DIBV5` (stops Windows from synthesizing), delayed rendering on paste (exit handling) |
