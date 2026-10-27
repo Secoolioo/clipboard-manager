@@ -17,10 +17,12 @@ internal sealed class TempDataDirectory : IDisposable
     public AppPaths Paths { get; }
 
     /// <summary>True if any file in the data directory contains <paramref name="needle"/> as UTF-8 or UTF-16.</summary>
-    public bool AnyFileContains(string needle)
+    public bool AnyFileContains(string needle) =>
+        AnyFileContains(System.Text.Encoding.UTF8.GetBytes(needle), System.Text.Encoding.Unicode.GetBytes(needle));
+
+    /// <summary>True if any file in the data directory contains one of the byte sequences (for image data).</summary>
+    public bool AnyFileContains(params byte[][] needles)
     {
-        var utf8 = System.Text.Encoding.UTF8.GetBytes(needle);
-        var utf16 = System.Text.Encoding.Unicode.GetBytes(needle);
         foreach (var file in Directory.EnumerateFiles(Path, "*", SearchOption.AllDirectories))
         {
             byte[] bytes;
@@ -30,9 +32,12 @@ internal sealed class TempDataDirectory : IDisposable
                 stream.ReadExactly(bytes);
             }
 
-            if (bytes.AsSpan().IndexOf(utf8) >= 0 || bytes.AsSpan().IndexOf(utf16) >= 0)
+            foreach (var needle in needles)
             {
-                return true;
+                if (bytes.AsSpan().IndexOf(needle) >= 0)
+                {
+                    return true;
+                }
             }
         }
 
@@ -55,4 +60,8 @@ internal static class Canary
 {
     /// <summary>A unique marker that must never show up where it should not.</summary>
     public static string Create() => "canary-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>Random bytes that stand in for image data (the store treats images as opaque blobs).</summary>
+    public static byte[] CreateBytes(int length = 4096) => System.Security.Cryptography.RandomNumberGenerator.GetBytes(length);
 }
+

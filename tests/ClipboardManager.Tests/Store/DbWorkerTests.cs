@@ -98,4 +98,19 @@ public sealed class DbWorkerTests : IAsyncLifetime
         Assert.Equal(["b", "a"], snapshot.Pinned.Select(e => e.SearchText));
         Assert.Equal(["c"], snapshot.History.Select(e => e.SearchText));
     }
+
+    [Fact]
+    public async Task An_image_capture_publishes_its_entry_with_the_clipboard_sequence()
+    {
+        var image = TestImages.Fake(width: 300, height: 200);
+
+        var result = await _worker.CaptureImageAsync(image, 100, sequence: 42);
+
+        Assert.Equal(CaptureOutcome.Inserted, result!.Outcome);
+        var batch = _batches.Last();
+        Assert.Equal(42u, batch.CapturedSequence);
+        Assert.Equal(300, Assert.Single(batch.Upserted).Image!.Width);
+        Assert.Equal(image.Png, await _worker.GetImageAsync(result.Entry!.Id));
+        Assert.Equal(image.Png, (await _worker.DeleteAsync(result.Entry.Id))!.ImageData);
+    }
 }

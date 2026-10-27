@@ -15,10 +15,11 @@ using ClipboardManager.Popup;
 namespace ClipboardManager.Tests.Windows;
 
 /// <summary>
-/// Copying an image (no CF_UNICODETEXT) must leave the app alive: the capture pipeline records
-/// "not text" for the clipboard sequence and the popup shows that hint row under the Fluent theme.
-/// Regression for the v0.9.0 crash, driven through the real <see cref="PopupController"/> warm-up
-/// (cloaked, never activated). The clipboard itself is never opened; only its sequence number is read.
+/// Copied pictures and other content in the popup, driven through the real <see cref="PopupController"/>
+/// warm-up (cloaked, never activated). Content that is neither text nor an image (files) must leave
+/// the app alive: the capture pipeline records "not text" for the clipboard sequence and the popup
+/// shows that hint row under the Fluent theme (regression for the v0.9.0 crash, which an image
+/// triggered then). The clipboard itself is never opened; only its sequence number is read.
 /// </summary>
 [Collection(Unit.LocalizationCollection.Name)]
 [Trait("Category", "Windows")]
@@ -30,7 +31,7 @@ public sealed class ImageCopyPopupTests
 
     [Theory]
     [MemberData(nameof(Themes))]
-    public Task Image_on_the_clipboard_shows_the_not_text_hint_without_ui_errors(string theme) => StaRunner.Run(async () =>
+    public Task Unsupported_content_on_the_clipboard_shows_the_not_text_hint_without_ui_errors(string theme) => StaRunner.Run(async () =>
     {
         Strings.Apply(LanguagePreference.English);
         var failures = new List<Exception>();
@@ -57,8 +58,8 @@ public sealed class ImageCopyPopupTests
         var failed = 0;
         controller.Failed += (_, _) => failed++;
 
-        // What the reader reports when the clipboard holds an image, and what the policy makes of it.
-        var reason = CapturePolicy.Evaluate(new ClipboardSnapshot(1, SkipReason.NotText, null, "mspaint.exe"), CaptureSettings.Default);
+        // What the reader reports when the clipboard holds files, and what the policy makes of it.
+        var reason = CapturePolicy.Evaluate(new ClipboardSnapshot(1, SkipReason.NotText, null, "explorer.exe"), CaptureSettings.Default);
         Assert.Equal(SkipReason.NotText, reason);
 
         try
@@ -69,7 +70,7 @@ public sealed class ImageCopyPopupTests
             {
                 var sequence = User32.GetClipboardSequenceNumber();
 
-                // The newest text was current before the image replaced it; the image's sequence is "not text".
+                // The newest text was current before the files replaced it; their sequence is "not text".
                 tracker.EntryIsCurrent(sequence - 1, 3);
                 tracker.ContentSkipped(sequence, reason);
 
@@ -96,6 +97,63 @@ public sealed class ImageCopyPopupTests
             }
 
             Assert.Equal(3, verified);
+            Assert.Equal(0, failed);
+            Assert.Empty(failures);
+        }
+        finally
+        {
+            controller.Detach();
+            window.AllowCloseForShutdown();
+            window.Close();
+        }
+    });
+
+    /// <summary>
+    /// A captured picture shows as a row with its thumbnail and as the preview in every theme. The
+    /// warm-up shows the thumbnail only: it never reads or decodes the picture itself.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public Task A_captured_image_renders_as_a_row_and_as_the_preview(string theme) => StaRunner.Run(async () =>
+    {
+        Strings.Apply(LanguagePreference.English);
+        var failures = new List<Exception>();
+        Dispatcher.CurrentDispatcher.UnhandledException += (_, e) =>
+        {
+            failures.Add(e.Exception);
+            e.Handled = true;
+        };
+
+        using var data = new TempDataDirectory();
+        var worker = new DbWorker(FileLog.Null);
+        await using var workerScope = worker.ConfigureAwait(true);
+        using var gate = new ClipboardGate();
+        var image = TestImages.Captured(320, 200, transparent: true);
+        var index = new HistoryIndex();
+        index.Apply(new HistoryChangeBatch(1, HistoryChangeBatch.NoEntries, HistoryChangeBatch.NoIds,
+            [Entry(1, "older"), new HistoryEntry(2, string.Empty, 0, 0, 2000, 2000, null, new EntryImage(image.Width, image.Height, image.Png.Length, image.Thumbnail))]));
+        var settings = new SettingsHolder(new SettingsStore(data.Paths.SettingsFile, FileLog.Null), new AppSettings());
+        var model = new PopupViewModel();
+        var window = new PopupWindow(model);
+#pragma warning disable WPF0001 // Same Fluent dictionaries the app gets from Application.ThemeMode, without a process-wide Application.
+        window.ThemeMode = new ThemeMode(theme);
+#pragma warning restore WPF0001
+        var controller = new PopupController(window, index, new CurrentClipTracker(), new MonitoringState(TimeProvider.System), worker, new ClipboardWriter(IntPtr.Zero, gate, FileLog.Null), settings, FileLog.Null);
+        var failed = 0;
+        controller.Failed += (_, _) => failed++;
+
+        try
+        {
+            controller.Prewarm();
+
+            var row = Assert.IsType<EntryRow>(model.Selected);
+            Assert.True(row.IsImage);
+            Assert.NotNull(row.Thumbnail);
+            Assert.Same(row.Thumbnail, model.PreviewImage);
+            window.UpdateLayout();
+            Assert.IsType<ListBoxItem>(window.List.ItemContainerGenerator.ContainerFromItem(row));
+
+            await WaitForWarmUpAsync(controller);
             Assert.Equal(0, failed);
             Assert.Empty(failures);
         }

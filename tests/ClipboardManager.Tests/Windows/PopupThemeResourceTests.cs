@@ -44,7 +44,9 @@ public sealed class PopupThemeResourceTests
 #pragma warning restore WPF0001
         Dwm.Set(new WindowInteropHelper(window).EnsureHandle(), Dwm.DWMWA_CLOAK, 1);
         var pins = Enumerable.Range(20, 5).Select(i => Entry(i, "pin " + i, i)).ToList();
-        var snapshot = new HistorySnapshot(pins, [Entry(3, "newest"), Entry(2, "previous"), Entry(1, "older")]);
+        var image = TestImages.Captured(120, 80, transparent: true);
+        var picture = new HistoryEntry(4, string.Empty, 0, 0, 4000, 4000, null, new EntryImage(image.Width, image.Height, image.Png.Length, image.Thumbnail));
+        var snapshot = new HistorySnapshot(pins, [picture, Entry(3, "newest"), Entry(2, "previous"), Entry(1, "older")]);
         try
         {
             // Notice (skipped copy) + headers + pinned + "more" + history rows, like a real open.
@@ -53,6 +55,12 @@ public sealed class PopupThemeResourceTests
             Assert.Contains(model.Rows, r => r is HeaderRow);
             Assert.Contains(model.Rows, r => r is MoreRow);
             window.Show();
+            window.UpdateLayout();
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+
+            // An image row and its preview (the thumbnail; no loader outside the controller).
+            model.Selected = model.Rows.OfType<EntryRow>().Single(r => r.IsImage);
+            Assert.NotNull(model.PreviewImage);
             window.UpdateLayout();
             await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
 

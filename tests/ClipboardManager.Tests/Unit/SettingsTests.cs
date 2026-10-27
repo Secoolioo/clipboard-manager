@@ -99,4 +99,26 @@ public sealed class SettingsTests : IDisposable
         Assert.True(new HotkeyGesture(HotkeyModifiers.Control | HotkeyModifiers.Alt, 0x56).UsesAltGrChord);
         Assert.False(HotkeyGesture.Default.UsesAltGrChord);
     }
+
+    [Fact]
+    public void Images_are_saved_by_default_and_the_choice_survives_a_restart()
+    {
+        Assert.False(Store().Load().Settings.SkipImages);
+
+        Assert.True(Store().Save(new AppSettings { SkipImages = true }));
+
+        Assert.True(Store().Load().Settings.SkipImages);
+    }
+
+    [Fact]
+    public void Settings_from_before_images_existed_turn_them_on()
+    {
+        File.WriteAllText(_dir.Paths.SettingsFile, """{ "schemaVersion": 1, "maxHistoryItems": 250 }""");
+
+        var (settings, state) = Store().Load();
+
+        Assert.Equal(SettingsLoadState.Loaded, state);
+        Assert.Equal(250, settings.MaxHistoryItems);
+        Assert.False(settings.SkipImages);
+    }
 }

@@ -123,4 +123,84 @@ public sealed class StorePrivacyTests : IDisposable
             Assert.True(bytes.AsSpan().IndexOf(System.Text.Encoding.UTF8.GetBytes(canary)) < 0, "SQLite temp file contains clipboard text");
         }
     }
+
+    [Fact]
+    public void Deleted_image_and_thumbnail_are_gone_from_every_file()
+    {
+        using var store = Open();
+        var image = LargeImage();
+        Capture(store, "before");
+        var entry = store.CaptureImage(image, _now++).Entry!;
+        Capture(store, "after");
+        Assert.True(_dir.AnyFileContains(Pieces(image)));
+
+        store.Delete(entry.Id);
+
+        Assert.False(_dir.AnyFileContains(Pieces(image)));
+    }
+
+    [Fact]
+    public void Clearing_history_scrubs_all_image_data()
+    {
+        using var store = Open();
+        var images = Enumerable.Range(0, 5).Select(_ => LargeImage()).ToList();
+        foreach (var image in images)
+        {
+            store.CaptureImage(image, _now++);
+        }
+
+        store.Clear(includePinned: false);
+
+        Assert.All(images, image => Assert.False(_dir.AnyFileContains(Pieces(image))));
+    }
+
+    [Fact]
+    public void Memory_only_mode_never_writes_unpinned_images_to_disk()
+    {
+        var image = LargeImage();
+        using (var store = Open(memoryOnly: true))
+        {
+            store.CaptureImage(image, _now++);
+            Assert.False(_dir.AnyFileContains(Pieces(image)));
+        }
+
+        Assert.False(_dir.AnyFileContains(Pieces(image)));
+    }
+
+    [Fact]
+    public void Switching_memory_only_on_scrubs_existing_images_from_disk()
+    {
+        using var store = Open();
+        var image = LargeImage();
+        store.CaptureImage(image, _now++);
+        Assert.True(_dir.AnyFileContains(Pieces(image)));
+
+        store.SetMemoryOnly(true);
+
+        Assert.False(_dir.AnyFileContains(Pieces(image)));
+    }
+
+    [Fact]
+    public void Unpinning_an_image_in_memory_only_mode_removes_it_from_disk()
+    {
+        using var store = Open(memoryOnly: true);
+        var image = LargeImage();
+        var entry = store.CaptureImage(image, _now++).Entry!;
+        store.SetPinned(entry.Id, true, _now++);
+        Assert.True(_dir.AnyFileContains(Pieces(image)));
+
+        store.SetPinned(entry.Id, false, _now++);
+
+        Assert.False(_dir.AnyFileContains(Pieces(image)));
+    }
+
+    /// <summary>Large enough to spill into SQLite overflow pages, which is where pictures live.</summary>
+    private static CapturedImage LargeImage() => TestImages.Fake(length: 64 * 1024);
+
+    /// <summary>
+    /// Short pieces from all over the image and the whole thumbnail: SQLite splits a large blob
+    /// across pages, so a long needle could miss data that is there.
+    /// </summary>
+    private static byte[][] Pieces(CapturedImage image) =>
+        [.. Enumerable.Range(0, 8).Select(i => image.Png.AsSpan(i * (image.Png.Length / 8), 48).ToArray()), image.Thumbnail];
 }

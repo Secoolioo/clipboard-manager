@@ -5,7 +5,8 @@ namespace ClipboardManager.Core.History;
 
 /// <summary>
 /// In-memory view of one history entry. <see cref="SearchText"/> is the full text for entries up to
-/// <see cref="HistoryStore.SearchHeadLength"/> characters, otherwise only its beginning.
+/// <see cref="HistoryStore.SearchHeadLength"/> characters, otherwise only its beginning. Image
+/// entries have an empty text and carry <see cref="Image"/> instead.
 /// </summary>
 public sealed record HistoryEntry(
     long Id,
@@ -14,21 +15,42 @@ public sealed record HistoryEntry(
     int LineCount,
     long CreatedAtMs,
     long LastUsedAtMs,
-    long? PinnedAtMs)
+    long? PinnedAtMs,
+    EntryImage? Image = null)
 {
     public bool IsPinned => PinnedAtMs is not null;
+
+    public bool IsImage => Image is not null;
 
     /// <summary>True when only the beginning of the text is searchable.</summary>
     public bool IsPartiallySearchable => CharCount > SearchText.Length;
 }
 
+/// <summary>What the index keeps of an image: its size and a small PNG thumbnail. The image itself stays in the database.</summary>
+public sealed record EntryImage(int Width, int Height, long ByteCount, byte[] Thumbnail);
+
+/// <summary>A normalized clipboard image: a PNG without metadata, plus its thumbnail (also a PNG).</summary>
+public sealed record CapturedImage(byte[] Png, byte[] Thumbnail, int Width, int Height);
+
 /// <summary>A deleted entry kept in memory so the popup can undo the deletion.</summary>
-public sealed record DeletedEntry(HistoryEntry Entry, string Text);
+public sealed record DeletedEntry(HistoryEntry Entry, string Text, byte[]? ImageData = null);
 
 public static class ContentHash
 {
+    private static ReadOnlySpan<byte> ImageDomain => "ClipboardManager image v1\n"u8;
+
     /// <summary>SHA-256 over the UTF-16 code units (no extra encoding copy for large texts).</summary>
     public static byte[] Compute(string text) => SHA256.HashData(MemoryMarshal.AsBytes(text.AsSpan()));
+
+    /// <summary>SHA-256 over the normalized PNG, domain-separated so an image can never share a hash with a text.</summary>
+    public static byte[] ComputeImage(byte[] png)
+    {
+        ArgumentNullException.ThrowIfNull(png);
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        hash.AppendData(ImageDomain);
+        hash.AppendData(png);
+        return hash.GetHashAndReset();
+    }
 }
 
 public static class TextMetrics

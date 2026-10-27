@@ -26,6 +26,7 @@ internal static partial class User32
     public const uint MOD_NOREPEAT = 0x4000;
     public const int ERROR_HOTKEY_ALREADY_REGISTERED = 1409;
 
+    public const uint CF_DIB = 8;
     public const uint CF_UNICODETEXT = 13;
 
     public const uint MF_STRING = 0x0000;

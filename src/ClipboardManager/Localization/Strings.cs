@@ -86,6 +86,20 @@ public static partial class Strings
 
     public static string PinnedAt(string when) => T($"angeheftet {when}", $"pinned {when}");
 
+    /// <summary>The word that finds images in the search (in the UI language).</summary>
+    public static string ImageWord => T("Bild", "Image");
+
+    public static string ImageRow(int width, int height) => T($"Bild · {width} × {height}", $"Image · {width} × {height}");
+
+    public static string ImageSpoken(int width, int height) => T($"Bild, {width} mal {height} Pixel", $"Image, {width} by {height} pixels");
+
+    public static string ImageSize(int width, int height, long bytes) =>
+        T($"{width} × {height} Pixel · {FileSize(bytes)}", $"{width} × {height} pixels · {FileSize(bytes)}");
+
+    public static string FileSize(long bytes) => bytes < 1024 * 1024
+        ? string.Create(Culture, $"{Math.Max(1.0, bytes / 1024.0):N0} KB")
+        : string.Create(Culture, $"{bytes / 1048576.0:N1} MB");
+
     public static string MenuCopy => T("Kopieren", "Copy");
 
     public static string MenuPin => T("Anheften", "Pin");
@@ -134,8 +148,9 @@ public static partial class Strings
         SkipReason.ExcludedApp => T("Letzte Kopie nicht gespeichert – ausgeschlossene App", "Last copy not saved – excluded app"),
         SkipReason.LooksLikeSecret => T("Letzte Kopie nicht gespeichert – sieht aus wie Zugangsdaten", "Last copy not saved – looks like a credential"),
         SkipReason.TooLarge => T("Letzte Kopie nicht gespeichert – zu groß", "Last copy not saved – too large"),
-        SkipReason.NotText => T("Letzte Kopie nicht gespeichert – kein Text (Bild oder Dateien)", "Last copy not saved – not text (image or files)"),
+        SkipReason.NotText => T("Letzte Kopie nicht gespeichert – weder Text noch Bild (z. B. Dateien)", "Last copy not saved – not text or an image (e.g. files)"),
         SkipReason.ReadFailed => T("Letzte Kopie nicht gespeichert – Zwischenablage war gesperrt", "Last copy not saved – the clipboard was locked"),
+        SkipReason.ImagesOff => T("Letzte Kopie nicht gespeichert – Bilder speichern ist aus", "Last copy not saved – saving images is off"),
         _ => string.Empty,
     };
 

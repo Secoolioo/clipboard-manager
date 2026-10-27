@@ -52,6 +52,10 @@ public readonly record struct HistoryLimits(int MaxItems, long MaxTotalChars)
     public const int MinItems = 10;
     public const int MaxItemsUpperBound = 5000;
     public const long DefaultMaxTotalChars = 20_000_000;
+    public const long DefaultMaxImageBytes = 128L * 1024 * 1024;
+
+    /// <summary>Budget for the stored PNGs of all unpinned images (in memory-only mode that is RAM).</summary>
+    public long MaxImageBytes { get; init; } = DefaultMaxImageBytes;
 
     public static HistoryLimits For(int maxItems) =>
         new(Math.Clamp(maxItems, MinItems, MaxItemsUpperBound), DefaultMaxTotalChars);

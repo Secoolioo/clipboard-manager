@@ -42,15 +42,10 @@ public sealed class DbWorker : IAsyncDisposable
             requiresStore: false);
 
     public Task<CaptureResult?> CaptureAsync(string text, byte[] hash, long nowMs, uint? sequence = null) =>
-        Enqueue<CaptureResult?>(
-            store =>
-            {
-                var result = store.Capture(text, hash, nowMs);
-                return result.Outcome == CaptureOutcome.Unchanged
-                    ? (result, null)
-                    : (result, Batch(result.Entry, result.Removed) with { CapturedSequence = sequence });
-            },
-            null);
+        Enqueue<CaptureResult?>(store => CaptureBatch(store.Capture(text, hash, nowMs), sequence), null);
+
+    public Task<CaptureResult?> CaptureImageAsync(CapturedImage image, long nowMs, uint? sequence = null) =>
+        Enqueue<CaptureResult?>(store => CaptureBatch(store.CaptureImage(image, nowMs), sequence), null);
 
     public Task<HistoryEntry?> PromoteAsync(long id, long nowMs) =>
         Enqueue(store =>
@@ -105,6 +100,9 @@ public sealed class DbWorker : IAsyncDisposable
 
     public Task<string?> GetTextAsync(long id) =>
         Enqueue(store => (store.GetText(id), (HistoryChangeBatch?)null), (string?)null);
+
+    public Task<byte[]?> GetImageAsync(long id) =>
+        Enqueue(store => (store.GetImage(id), (HistoryChangeBatch?)null), (byte[]?)null);
 
     /// <summary>Synchronous bounded shutdown for WM_ENDSESSION, where async continuations may never run.</summary>
     public void Shutdown(TimeSpan timeout)
@@ -196,6 +194,11 @@ public sealed class DbWorker : IAsyncDisposable
             _log.Error(Category, "Change subscriber failed", ex);
         }
     }
+
+    private static (CaptureResult?, HistoryChangeBatch?) CaptureBatch(CaptureResult result, uint? sequence) =>
+        result.Outcome == CaptureOutcome.Unchanged
+            ? (result, null)
+            : (result, Batch(result.Entry, result.Removed) with { CapturedSequence = sequence });
 
     private static HistoryChangeBatch Batch(HistoryEntry? upserted, IReadOnlyList<long> removed) =>
         new(0, upserted is null ? HistoryChangeBatch.NoEntries : [upserted], removed);

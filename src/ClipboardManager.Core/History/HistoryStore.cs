@@ -12,12 +12,18 @@ namespace ClipboardManager.Core.History;
 public sealed class HistoryStore : IDisposable
 {
     public const int SearchHeadLength = 4096;
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
 
     private const string Category = "Store";
     private const string AllEntries = "temp.all_entries";
-    private const string EntryColumns = "id, hash, char_count, line_count, created_at, last_used_at, pinned_at, search_head, text";
-    private const string ViewColumns = "id, char_count, line_count, created_at, last_used_at, pinned_at, COALESCE(search_head, text) AS search_text, in_mem";
+    private const string EntryColumns = "id, hash, kind, char_count, line_count, width, height, byte_count, created_at, last_used_at, pinned_at, search_head, thumb, text, image";
+
+    // The view leaves the image itself out: nothing that loads or searches the index can ever read a multi-megabyte blob.
+    private const string IndexColumns = "id, hash, kind, char_count, line_count, width, height, byte_count, created_at, last_used_at, pinned_at, search_head, thumb, text";
+    private const string ViewColumns = "id, char_count, line_count, created_at, last_used_at, pinned_at, COALESCE(search_head, text) AS search_text, in_mem, kind, width, height, byte_count, thumb";
+    private const string Version1Columns = "id, hash, char_count, line_count, created_at, last_used_at, pinned_at, search_head, text";
+    private const int KindText = 0;
+    private const int KindImage = 1;
 
     private readonly AppPaths? _paths;
     private readonly FileLog _log;
@@ -69,19 +75,36 @@ public sealed class HistoryStore : IDisposable
         return cmd.ExecuteScalar() as string;
     }
 
+    /// <summary>The stored PNG of an image entry, read from the tables directly (the view never carries it).</summary>
+    public byte[]? GetImage(long id)
+    {
+        using var cmd = Command("SELECT image FROM main.entries WHERE id = $id UNION ALL SELECT image FROM mem.entries WHERE id = $id");
+        cmd.Parameters.AddWithValue("$id", id);
+        return cmd.ExecuteScalar() as byte[];
+    }
+
     public CaptureResult Capture(string text, byte[] hash, long nowMs)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(hash);
+        return CaptureCore(text, null, hash, nowMs);
+    }
 
-        return InTransaction(() =>
+    public CaptureResult CaptureImage(CapturedImage image, long nowMs)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        return CaptureCore(string.Empty, image, ContentHash.ComputeImage(image.Png), nowMs);
+    }
+
+    private CaptureResult CaptureCore(string text, CapturedImage? image, byte[] hash, long nowMs) =>
+        InTransaction(() =>
         {
             using (var top = Command($"SELECT id, hash FROM {AllEntries} ORDER BY last_used_at DESC, id DESC LIMIT 1"))
             using (var reader = top.ExecuteReader())
             {
                 if (reader.Read() && reader.GetFieldValue<byte[]>(1).AsSpan().SequenceEqual(hash))
                 {
-                    // Same text as the newest entry (sync tools, apps re-setting the clipboard): no write at all.
+                    // Same content as the newest entry (sync tools, apps re-setting the clipboard): no write at all.
                     var topId = reader.GetInt64(0);
                     reader.Close();
                     return new CaptureResult(CaptureOutcome.Unchanged, Find(topId), HistoryChangeBatch.NoIds);
@@ -107,14 +130,13 @@ public sealed class HistoryStore : IDisposable
             else
             {
                 id = _nextId++;
-                Insert(PersistsUnpinned ? "main" : "mem", id, text, hash, now, now, pinnedAtMs: null);
+                Insert(PersistsUnpinned ? "main" : "mem", id, text, image, hash, now, now, pinnedAtMs: null);
                 outcome = CaptureOutcome.Inserted;
             }
 
             var removed = ApplyRetention();
             return new CaptureResult(outcome, Find(id), removed);
         });
-    }
 
     public HistoryEntry? Promote(long id, long nowMs) =>
         InTransaction(() => UpdateLastUsed(id, Monotonic(nowMs)) ? Find(id) : null);
@@ -173,8 +195,9 @@ public sealed class HistoryStore : IDisposable
                 return null;
             }
 
+            var image = entry.IsImage ? GetImage(id) : null;
             DeleteRows([id]);
-            return new DeletedEntry(entry, text);
+            return new DeletedEntry(entry, text, image);
         });
 
         if (deleted is not null)
@@ -191,7 +214,19 @@ public sealed class HistoryStore : IDisposable
         ArgumentNullException.ThrowIfNull(deleted);
         return InTransaction<(HistoryEntry?, IReadOnlyList<long>)>(() =>
         {
-            var hash = ContentHash.Compute(deleted.Text);
+            var entry = deleted.Entry;
+            CapturedImage? image = null;
+            if (entry.Image is { } info)
+            {
+                if (deleted.ImageData is null)
+                {
+                    return (null, HistoryChangeBatch.NoIds);
+                }
+
+                image = new CapturedImage(deleted.ImageData, info.Thumbnail, info.Width, info.Height);
+            }
+
+            var hash = image is null ? ContentHash.Compute(deleted.Text) : ContentHash.ComputeImage(image.Png);
             using (var find = Command($"SELECT id FROM {AllEntries} WHERE hash = $hash"))
             {
                 find.Parameters.AddWithValue("$hash", hash);
@@ -201,10 +236,9 @@ public sealed class HistoryStore : IDisposable
                 }
             }
 
-            var entry = deleted.Entry;
             var id = Locate(entry.Id) is null && entry.Id < _nextId ? entry.Id : _nextId++;
             var schema = entry.IsPinned || PersistsUnpinned ? "main" : "mem";
-            Insert(schema, id, deleted.Text, hash, entry.CreatedAtMs, entry.LastUsedAtMs, entry.PinnedAtMs);
+            Insert(schema, id, deleted.Text, image, hash, entry.CreatedAtMs, entry.LastUsedAtMs, entry.PinnedAtMs);
             var removed = entry.IsPinned ? HistoryChangeBatch.NoIds : ApplyRetention();
             return (Find(id), removed);
         });
@@ -271,6 +305,11 @@ public sealed class HistoryStore : IDisposable
             Scrub(PurgeWal);
             Scrub(Vacuum);
             DeleteQuarantine();
+        }
+        else
+        {
+            // What was collected in memory is in main now (or discarded): give its RAM back.
+            Scrub(() => Execute("VACUUM mem"));
         }
 
         return LoadAll();
@@ -442,38 +481,68 @@ public sealed class HistoryStore : IDisposable
             throw new NewerSchemaException();
         }
 
-        InTransaction(() =>
+        var rebuilt = InTransaction(() =>
         {
+            var rebuild = false;
             if (version < 1)
             {
+                // A new database gets the latest layout directly.
                 CreateEntriesTable("main");
             }
+            else
+            {
+                if (version < 2)
+                {
+                    // Version 2 adds the image columns. A rebuild instead of ALTER TABLE ... ADD COLUMN
+                    // keeps the large columns last (secure_delete zeroes the pages of the old table).
+                    CreateEntriesTable("main", "entries_v2");
+                    Execute($"INSERT INTO main.entries_v2 ({Version1Columns}) SELECT {Version1Columns} FROM main.entries");
+                    Execute("DROP TABLE main.entries");
+                    Execute("ALTER TABLE main.entries_v2 RENAME TO entries");
+                    rebuild = true;
+                }
 
-            // Future migrations: if (version < 2) { ... }
+                // Future migrations: if (version < 3) { ... }
+            }
+
             Execute($"PRAGMA main.user_version = {SchemaVersion}");
-            return 0;
+            return rebuild;
         });
+
+        if (rebuilt)
+        {
+            // The copied table and the zeroed old pages would otherwise stay in the WAL until the next checkpoint.
+            PurgeWal();
+        }
     }
 
     private void AttachMemory()
     {
         Execute("ATTACH DATABASE ':memory:' AS mem");
         CreateEntriesTable("mem");
-        Execute($"CREATE TEMP VIEW all_entries AS SELECT {EntryColumns}, 0 AS in_mem FROM main.entries UNION ALL SELECT {EntryColumns}, 1 AS in_mem FROM mem.entries");
+        Execute($"CREATE TEMP VIEW all_entries AS SELECT {IndexColumns}, 0 AS in_mem FROM main.entries UNION ALL SELECT {IndexColumns}, 1 AS in_mem FROM mem.entries");
     }
 
-    private void CreateEntriesTable(string schema) => Execute(
+    // Large columns last: loading the index reads the columns up to thumb (a few KB at most), never
+    // the text of long entries or an image. Images have an empty text and kind = 1.
+    private void CreateEntriesTable(string schema, string table = "entries") => Execute(
         $"""
-        CREATE TABLE IF NOT EXISTS {schema}.entries (
+        CREATE TABLE IF NOT EXISTS {schema}.{table} (
             id           INTEGER PRIMARY KEY,
             hash         BLOB    NOT NULL UNIQUE,
+            kind         INTEGER NOT NULL DEFAULT 0,
             char_count   INTEGER NOT NULL,
             line_count   INTEGER NOT NULL,
+            width        INTEGER NULL,
+            height       INTEGER NULL,
+            byte_count   INTEGER NOT NULL DEFAULT 0,
             created_at   INTEGER NOT NULL,
             last_used_at INTEGER NOT NULL,
             pinned_at    INTEGER NULL,
             search_head  TEXT    NULL,
-            text         TEXT    NOT NULL
+            thumb        BLOB    NULL,
+            text         TEXT    NOT NULL,
+            image        BLOB    NULL
         )
         """);
 
@@ -521,19 +590,25 @@ public sealed class HistoryStore : IDisposable
 
     // ---- row helpers ------------------------------------------------------------------------
 
-    private void Insert(string schema, long id, string text, byte[] hash, long createdAtMs, long lastUsedAtMs, long? pinnedAtMs)
+    private void Insert(string schema, long id, string text, CapturedImage? image, byte[] hash, long createdAtMs, long lastUsedAtMs, long? pinnedAtMs)
     {
         using var cmd = Command(
-            $"INSERT INTO {schema}.entries ({EntryColumns}) VALUES ($id, $hash, $chars, $lines, $created, $used, $pinned, $head, $text)");
+            $"INSERT INTO {schema}.entries ({EntryColumns}) VALUES ($id, $hash, $kind, $chars, $lines, $width, $height, $bytes, $created, $used, $pinned, $head, $thumb, $text, $image)");
         cmd.Parameters.AddWithValue("$id", id);
         cmd.Parameters.AddWithValue("$hash", hash);
+        cmd.Parameters.AddWithValue("$kind", image is null ? KindText : KindImage);
         cmd.Parameters.AddWithValue("$chars", text.Length);
         cmd.Parameters.AddWithValue("$lines", TextMetrics.CountLines(text));
+        cmd.Parameters.AddWithValue("$width", image is null ? DBNull.Value : image.Width);
+        cmd.Parameters.AddWithValue("$height", image is null ? DBNull.Value : image.Height);
+        cmd.Parameters.AddWithValue("$bytes", image is null ? 0L : image.Png.LongLength);
         cmd.Parameters.AddWithValue("$created", createdAtMs);
         cmd.Parameters.AddWithValue("$used", lastUsedAtMs);
         cmd.Parameters.AddWithValue("$pinned", pinnedAtMs is { } p ? p : DBNull.Value);
         cmd.Parameters.AddWithValue("$head", text.Length > SearchHeadLength ? text[..SearchHeadLength] : DBNull.Value);
+        cmd.Parameters.AddWithValue("$thumb", image is null ? DBNull.Value : image.Thumbnail);
         cmd.Parameters.AddWithValue("$text", text);
+        cmd.Parameters.AddWithValue("$image", image is null ? DBNull.Value : image.Png);
         cmd.ExecuteNonQuery();
     }
 
@@ -588,16 +663,23 @@ public sealed class HistoryStore : IDisposable
         LineCount: r.GetInt32(2),
         CreatedAtMs: r.GetInt64(3),
         LastUsedAtMs: r.GetInt64(4),
-        PinnedAtMs: r.IsDBNull(5) ? null : r.GetInt64(5));
+        PinnedAtMs: r.IsDBNull(5) ? null : r.GetInt64(5),
+        Image: r.GetInt64(8) == KindImage ? ReadImage(r) : null);
 
-    private List<(long Id, long Chars)> UnpinnedByRecency()
+    private static EntryImage ReadImage(SqliteDataReader r) => new(
+        Width: r.IsDBNull(9) ? 0 : r.GetInt32(9),
+        Height: r.IsDBNull(10) ? 0 : r.GetInt32(10),
+        ByteCount: r.GetInt64(11),
+        Thumbnail: r.IsDBNull(12) ? Array.Empty<byte>() : r.GetFieldValue<byte[]>(12));
+
+    private List<(long Id, long Chars, long Bytes, bool IsImage)> UnpinnedByRecency()
     {
-        var rows = new List<(long, long)>();
-        using var cmd = Command($"SELECT id, char_count FROM {AllEntries} WHERE pinned_at IS NULL ORDER BY last_used_at DESC, id DESC");
+        var rows = new List<(long, long, long, bool)>();
+        using var cmd = Command($"SELECT id, char_count, byte_count, kind FROM {AllEntries} WHERE pinned_at IS NULL ORDER BY last_used_at DESC, id DESC");
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
-            rows.Add((reader.GetInt64(0), reader.GetInt64(1)));
+            rows.Add((reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt64(3) == KindImage));
         }
 
         return rows;
@@ -615,25 +697,40 @@ public sealed class HistoryStore : IDisposable
     }
 
     /// <summary>
-    /// Unpinned entries beyond the count limit or the total size budget. Strictly oldest first: once
-    /// one entry does not fit, it and everything older goes.
+    /// Unpinned entries beyond the count limit or a size budget. Strictly oldest first: beyond the
+    /// count limit everything older goes; once a text no longer fits the text budget, it and every
+    /// older text goes, and images have their own budget the same way. A large picture therefore never
+    /// pushes texts out of the history, and many texts never push out pictures.
     /// </summary>
     private List<long> SelectDoomed(HistoryLimits limits)
     {
         var doomed = new List<long>();
-        var (kept, total) = (0, 0L);
-        foreach (var (id, chars) in UnpinnedByRecency())
+        var (kept, chars, bytes) = (0, 0L, 0L);
+        var (textFull, imagesFull) = (false, false);
+        foreach (var (id, entryChars, entryBytes, isImage) in UnpinnedByRecency())
         {
-            // The newest entry always survives, even if it alone exceeds the size budget.
-            if (doomed.Count == 0 && (kept == 0 || (kept < limits.MaxItems && total + chars <= limits.MaxTotalChars)))
+            // The newest entry always survives, even if it alone exceeds a budget.
+            if (kept > 0)
             {
-                kept++;
-                total += chars;
+                if (isImage)
+                {
+                    imagesFull |= bytes + entryBytes > limits.MaxImageBytes;
+                }
+                else
+                {
+                    textFull |= chars + entryChars > limits.MaxTotalChars;
+                }
+
+                if (kept >= limits.MaxItems || (isImage ? imagesFull : textFull))
+                {
+                    doomed.Add(id);
+                    continue;
+                }
             }
-            else
-            {
-                doomed.Add(id);
-            }
+
+            kept++;
+            chars += entryChars;
+            bytes += entryBytes;
         }
 
         return doomed;
@@ -735,9 +832,12 @@ public sealed class HistoryStore : IDisposable
 
     private void Vacuum()
     {
+        // An in-memory database keeps freed pages allocated until it is vacuumed; with pictures in the
+        // history that can be the whole image budget of RAM.
+        Execute("VACUUM mem");
+        Execute("VACUUM main");
         if (Mode != StoreMode.MemoryFallback)
         {
-            Execute("VACUUM main");
             PurgeWal();
         }
     }

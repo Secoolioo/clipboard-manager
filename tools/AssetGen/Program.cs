@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using ClipboardManager.Clipboard;
 using ClipboardManager.Common;
 using ClipboardManager.Core.Capture;
 using ClipboardManager.Core.History;
@@ -423,9 +424,15 @@ internal static class Screenshots
             Entry("https://example.com/docs/getting-started", 900, 3),
             Entry("Best regards,\nAlex", 4000, 7),
         };
+        var picture = DemoPicture();
+        HistoryEntry Picture(double minutesAgo) =>
+            new(id++, string.Empty, 0, 0, now - (long)(minutesAgo * 60_000), now - (long)(minutesAgo * 60_000), null,
+                new EntryImage(picture.Width, picture.Height, picture.Png.Length, picture.Thumbnail));
+
         var history = new List<HistoryEntry>
         {
             Entry("docker compose up -d", 0.2),
+            Picture(1),
             Entry("git commit -m \"Add search highlighting\"", 2),
             Entry("https://example.org/blog/2026/keyboard-first-tools", 9),
             Entry("{\n  \"name\": \"demo-app\",\n  \"version\": \"1.0.0\",\n  \"private\": true\n}", 14),
@@ -437,10 +444,42 @@ internal static class Screenshots
             Entry("Ship v1.0 on Friday 🚀", 1500),
         };
         snapshot = new HistorySnapshot(pinned, history);
-        var model = new PopupViewModel();
+
+        // The preview shows the picture itself, as the app does once it has loaded it.
+        var model = new PopupViewModel { ImageLoader = _ => Task.FromResult<ImageSource?>(ImageCodec.DecodeForDisplay(picture.Png, picture.Width, picture.Height)) };
         model.Load(snapshot, currentEntryId: history[0].Id, SkipReason.None, isLoaded: true, pinnedExpanded: false);
         model.SetStatus(Strings.StatusActive, paused: false, pausedUntil: null);
         return model;
+    }
+
+    /// <summary>A neutral demo "screenshot" (a small bar chart), drawn in code and stored the way a real capture is.</summary>
+    private static CapturedImage DemoPicture()
+    {
+        const int Width = 960;
+        const int Height = 540;
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen())
+        {
+            dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(0xF7, 0xF9, 0xFB)), null, new Rect(0, 0, Width, Height));
+            var ink = new SolidColorBrush(Color.FromRgb(0x1F, 0x29, 0x37));
+            var title = new FormattedText("Weekly active users", System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI Semibold"), 34, ink, 1.0);
+            dc.DrawText(title, new Point(48, 36));
+            double[] values = [0.42, 0.55, 0.51, 0.68, 0.74, 0.81, 0.93];
+            var bar = new SolidColorBrush(Color.FromRgb(0x16, 0xD6, 0x7A));
+            for (var i = 0; i < values.Length; i++)
+            {
+                var barHeight = values[i] * 360;
+                dc.DrawRoundedRectangle(bar, null, new Rect(64 + (i * 124), 480 - barHeight, 84, barHeight), 8, 8);
+            }
+
+            dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(0xD1, 0xD5, 0xDB)), null, new Rect(48, 480, 864, 2));
+        }
+
+        var bitmap = new RenderTargetBitmap(Width, Height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        using var data = ClipboardImageData.FromSpan(ClipboardImageFormat.Png, Encode(new PngBitmapEncoder(), bitmap));
+        ImageCodec.Normalize(data, out var image);
+        return image ?? throw new InvalidOperationException("The demo picture could not be normalized.");
     }
 
     private static async Task RenderPopupAsync(string file, string? query)

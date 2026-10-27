@@ -42,6 +42,13 @@ public sealed record AppSettings
 
     public bool SkipDetectedSecrets { get; init; } = true;
 
+    /// <summary>
+    /// Screenshots and copied pictures are not saved. Stored as "skip" on purpose: the JSON source
+    /// generator gives an init-only property that is missing from the file its default value, so
+    /// settings files from before 0.11 keep images on.
+    /// </summary>
+    public bool SkipImages { get; init; }
+
     public bool HideFromScreenCapture { get; init; } = true;
 
     /// <summary>Persistent "pause until I resume" (timed pauses are not persisted).</summary>

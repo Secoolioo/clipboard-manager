@@ -141,16 +141,22 @@ internal sealed class CaptureCoordinator : IDisposable
             return;
         }
 
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (snapshot.Image is { } image)
+        {
+            _ = StoreAsync(snapshot.Sequence, _worker.CaptureImageAsync(image, now, snapshot.Sequence));
+            return;
+        }
+
         var text = TextMetrics.NormalizeSurrogates(snapshot.Text!);
-        var hash = ContentHash.Compute(text);
-        _ = CaptureAsync(snapshot.Sequence, text, hash);
+        _ = StoreAsync(snapshot.Sequence, _worker.CaptureAsync(text, ContentHash.Compute(text), now, snapshot.Sequence));
     }
 
-    private async Task CaptureAsync(uint sequence, string text, byte[] hash)
+    private async Task StoreAsync(uint sequence, Task<CaptureResult?> capture)
     {
         // New and promoted entries carry the sequence in their change batch (applied together with
         // the index). An unchanged capture publishes no batch, so mark it current here.
-        var result = await _worker.CaptureAsync(text, hash, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), sequence).ConfigureAwait(false);
+        var result = await capture.ConfigureAwait(false);
         if (result is { Outcome: CaptureOutcome.Unchanged, Entry: { } entry })
         {
             await _dispatcher.InvokeAsync(() => _tracker.EntryIsCurrent(sequence, entry.Id));

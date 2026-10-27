@@ -89,6 +89,7 @@ internal sealed partial class SettingsWindow : Window
         LanguageBox.SelectedIndex = (int)settings.Language;
         ThemeBox.SelectedIndex = (int)settings.Theme;
         MaxEntriesBox.SelectedIndex = Math.Max(0, Array.IndexOf(AppSettings.HistorySizePresets, NearestPreset(settings.MaxHistoryItems)));
+        ImagesBox.IsChecked = !settings.SkipImages;
         MemoryOnlyBox.IsChecked = settings.MemoryOnly;
         SecretsBox.IsChecked = settings.SkipDetectedSecrets;
         CaptureBox.IsChecked = settings.HideFromScreenCapture;
@@ -351,6 +352,12 @@ internal sealed partial class SettingsWindow : Window
     }
 
     private async void OnClearHistory(object sender, RoutedEventArgs e) => await _host.ClearHistoryAsync(this).ConfigureAwait(true);
+
+    private void OnImagesClick(object sender, RoutedEventArgs e)
+    {
+        var on = ImagesBox.IsChecked == true;
+        _host.UpdateSettings(s => s with { SkipImages = !on });
+    }
 
     // ---- Privacy ---------------------------------------------------------------------------
 

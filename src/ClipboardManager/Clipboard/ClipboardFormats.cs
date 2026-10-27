@@ -2,9 +2,12 @@ using ClipboardManager.Interop;
 
 namespace ClipboardManager.Clipboard;
 
-/// <summary>Registered clipboard formats that tell clipboard monitors to stay away.</summary>
+/// <summary>Registered clipboard formats: the ones that tell clipboard monitors to stay away, and "PNG".</summary>
 internal static class ClipboardFormats
 {
+    /// <summary>De-facto standard for images with transparency (browsers, Office, Snipping Tool): the bytes of a PNG file.</summary>
+    public static readonly uint Png = User32.RegisterClipboardFormat("PNG");
+
     /// <summary>Microsoft: data in this format excludes everything from history and cloud sync (presence counts).</summary>
     public static readonly uint ExcludeFromMonitoring = User32.RegisterClipboardFormat("ExcludeClipboardContentFromMonitorProcessing");
 

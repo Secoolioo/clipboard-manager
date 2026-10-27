@@ -135,4 +135,27 @@ public sealed class SearchAndPreviewTests
     [InlineData("one\r\ntwo", 2)]
     [InlineData("a\rb\nc", 3)]
     public void Line_count(string text, int expected) => Assert.Equal(expected, TextMetrics.CountLines(text));
+
+    private static HistoryEntry ImageEntry(long id, int width, int height) =>
+        new(id, string.Empty, 0, 0, id, id, null, new EntryImage(width, height, 1000, [1]));
+
+    [Fact]
+    public void Images_are_found_by_the_word_for_image_and_by_their_size()
+    {
+        var snapshot = new HistorySnapshot([], [ImageEntry(1, 1920, 1080), Entry(2, "an image of a cat"), ImageEntry(3, 800, 600)]);
+
+        Assert.Equal([1L, 2L, 3L], HistorySearch.Filter(snapshot, "image", "Image").History.Select(e => e.Id));
+        Assert.Equal([1L, 3L], HistorySearch.Filter(snapshot, "bild", "Bild").History.Select(e => e.Id));
+        Assert.Equal([1L], HistorySearch.Filter(snapshot, "1920x1080", "Image").History.Select(e => e.Id));
+        Assert.Equal([3L], HistorySearch.Filter(snapshot, "image 600", "Image").History.Select(e => e.Id));
+        Assert.Empty(HistorySearch.Filter(snapshot, "cat 1920", "Image").History);
+    }
+
+    [Fact]
+    public void Without_a_word_for_image_images_still_match_their_size()
+    {
+        var snapshot = new HistorySnapshot([], [ImageEntry(1, 1920, 1080), Entry(2, "text")]);
+
+        Assert.Equal([1L], HistorySearch.Filter(snapshot, "1080").History.Select(e => e.Id));
+    }
 }

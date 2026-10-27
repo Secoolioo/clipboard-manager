@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 using ClipboardManager.Clipboard;
 using ClipboardManager.Core.Capture;
 using ClipboardManager.Core.Diagnostics;
@@ -23,6 +24,9 @@ internal enum PopupSource
 internal sealed class PopupController : IPopupActions
 {
     private const string Category = "Popup";
+
+    // Longest side of a picture decoded for the preview pane: sharp on high-DPI screens, cheap to decode.
+    private const int PreviewMaxSide = 1280;
     private static readonly string[] ShellClasses = ["Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Progman", "WorkerW", "NotifyIconOverflowWindow", "TopLevelWindowForOverflowXamlIsland"];
 
     private readonly PopupWindow _window;
@@ -66,6 +70,7 @@ internal sealed class PopupController : IPopupActions
         _settings = settings;
         _log = log;
         _window.Actions = this;
+        _viewModel.ImageLoader = LoadPreviewImageAsync;
         _index.Changed += OnIndexChanged;
         _viewModel.PropertyChanged += (_, e) =>
         {
@@ -319,7 +324,7 @@ internal sealed class PopupController : IPopupActions
 
         if (row.IsCurrent)
         {
-            // Already in the clipboard: rewriting would only replace richer formats with plain text.
+            // Already in the clipboard: rewriting would only replace the source app's richer formats with ours.
             Close(restoreFocus: true);
             return;
         }
@@ -328,8 +333,18 @@ internal sealed class PopupController : IPopupActions
         var session = _session;
         try
         {
-            var text = row.Entry.IsPartiallySearchable ? await _worker.GetTextAsync(row.Entry.Id).ConfigureAwait(true) : row.Entry.SearchText;
-            if (text is null || session != _session)
+            byte[]? png = null;
+            string? text = null;
+            if (row.Entry.IsImage)
+            {
+                png = await _worker.GetImageAsync(row.Entry.Id).ConfigureAwait(true);
+            }
+            else
+            {
+                text = row.Entry.IsPartiallySearchable ? await _worker.GetTextAsync(row.Entry.Id).ConfigureAwait(true) : row.Entry.SearchText;
+            }
+
+            if ((text is null && png is null) || session != _session)
             {
                 if (session == _session)
                 {
@@ -339,7 +354,9 @@ internal sealed class PopupController : IPopupActions
                 return;
             }
 
-            var sequence = await _writer.WriteAsync(text).ConfigureAwait(true);
+            var sequence = png is not null
+                ? await _writer.WriteImageAsync(png).ConfigureAwait(true)
+                : await _writer.WriteAsync(text!).ConfigureAwait(true);
             if (sequence is null)
             {
                 if (session == _session)
@@ -416,6 +433,24 @@ internal sealed class PopupController : IPopupActions
     }
 
     public void AllowShutdown() => _window.AllowCloseForShutdown();
+
+    /// <summary>The picture for the preview pane, decoded off the UI thread at no more than the pane can show.</summary>
+    private async Task<ImageSource?> LoadPreviewImageAsync(HistoryEntry entry)
+    {
+        // A pre-warm only builds the window; it must not read and decode the newest image every time.
+        if (_window.IsPrewarming || entry.Image is not { } image)
+        {
+            return null;
+        }
+
+        var png = await _worker.GetImageAsync(entry.Id).ConfigureAwait(true);
+        if (png is null)
+        {
+            return null;
+        }
+
+        return await Task.Run(() => ImageCodec.DecodeForDisplay(png, image.Width, image.Height, PreviewMaxSide)).ConfigureAwait(true);
+    }
 
     private void LoadSnapshot(bool initial = false)
     {

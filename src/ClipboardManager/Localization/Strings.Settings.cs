@@ -70,11 +70,19 @@ public static partial class Strings
 
     public static string MaxEntries => T("Maximale Einträge (Angeheftete zählen nicht)", "Maximum entries (pinned do not count)");
 
+    public static string SaveImages => T("Bilder speichern (Screenshots, kopierte Bilder)", "Save images (screenshots, copied pictures)");
+
+    public static string SaveImagesNote => T(
+        $"Als PNG ohne Metadaten, zusammen bis {ImageBudgetMegabytes} MB – ältere Bilder fallen zuerst heraus, Text bleibt davon unberührt. Ausschalten behält vorhandene Bilder.",
+        $"Stored as PNG without metadata, up to {ImageBudgetMegabytes} MB in total – older images go first, text is not affected. Turning this off keeps existing images.");
+
     public static string MemoryOnly => T("Verlauf nur im Arbeitsspeicher halten", "Keep history in memory only");
 
     public static string MemoryOnlyNote => T(
-        "Nicht angeheftete Einträge werden nie gespeichert und sind nach dem Beenden weg. Angeheftete bleiben erhalten.",
-        "Unpinned entries are never written to disk and are gone after exit. Pinned entries are kept.");
+        "Nicht angeheftete Einträge werden nie gespeichert und sind nach dem Beenden weg (Bilder belegen dann Arbeitsspeicher). Angeheftete bleiben erhalten.",
+        "Unpinned entries are never written to disk and are gone after exit (images then use memory). Pinned entries are kept.");
+
+    private static long ImageBudgetMegabytes => Core.History.HistoryLimits.DefaultMaxImageBytes / (1024 * 1024);
 
     public static string ClearHistoryButton => T("Verlauf löschen…", "Clear history…");
 

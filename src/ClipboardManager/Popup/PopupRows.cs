@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Windows.Media;
 using ClipboardManager.Core.History;
 using ClipboardManager.Core.Text;
 using ClipboardManager.Localization;
@@ -103,13 +104,14 @@ public sealed class EntryRow : PopupRow
     public const string GlyphLink = "";
     public const string GlyphFolder = "";
     public const string GlyphPin = "";
+    public const string GlyphImage = "\uE8B9";
 
     private bool _isCurrent;
 
     public EntryRow(HistoryEntry entry, string[] terms, DateTimeOffset now)
     {
         Entry = entry;
-        Kind = ContentClassifier.Classify(entry.SearchText);
+        Kind = entry.IsImage ? ContentKind.Image : ContentClassifier.Classify(entry.SearchText);
         LineInfo = entry.LineCount > 1 ? Strings.LinesShort(entry.LineCount) : string.Empty;
         (Terms, Preview, Time) = Compute(terms, now);
     }
@@ -157,8 +159,9 @@ public sealed class EntryRow : PopupRow
 
     private (string[] Terms, string Preview, string Time) Compute(string[] terms, DateTimeOffset now)
     {
-        var match = terms.Length == 0 ? -1 : Core.Search.HistorySearch.FirstMatchIndex(Entry.SearchText, terms);
-        var preview = match > 40 ? PreviewText.Snippet(Entry.SearchText, match) : PreviewText.ForRow(Entry.SearchText);
+        var match = terms.Length == 0 || IsImage ? -1 : Core.Search.HistorySearch.FirstMatchIndex(Entry.SearchText, terms);
+        var preview = Entry.Image is { } image ? Strings.ImageRow(image.Width, image.Height)
+            : match > 40 ? PreviewText.Snippet(Entry.SearchText, match) : PreviewText.ForRow(Entry.SearchText);
         var used = DateTimeOffset.FromUnixTimeMilliseconds(Entry.LastUsedAtMs);
         return (terms, preview, Strings.RelativeTime(used, now));
     }
@@ -167,10 +170,16 @@ public sealed class EntryRow : PopupRow
 
     public bool IsPinned => Entry.IsPinned;
 
+    public bool IsImage => Entry.IsImage;
+
+    /// <summary>The thumbnail of an image entry, decoded when a shown row first asks for it.</summary>
+    public ImageSource? Thumbnail => Entry.Image is { } image ? Thumbnails.Get(image.Thumbnail) : null;
+
     public string Glyph => IsPinned ? GlyphPin : Kind switch
     {
         ContentKind.Url => GlyphLink,
         ContentKind.Path => GlyphFolder,
+        ContentKind.Image => GlyphImage,
         _ => GlyphText,
     };
 
@@ -194,7 +203,7 @@ public sealed class EntryRow : PopupRow
     {
         get
         {
-            var parts = new List<string> { Preview };
+            var parts = new List<string> { Entry.Image is { } image ? Strings.ImageSpoken(image.Width, image.Height) : Preview };
             if (IsPinned)
             {
                 parts.Add(Strings.PinnedHeader.ToLower(Strings.Culture));

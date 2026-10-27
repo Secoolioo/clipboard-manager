@@ -140,4 +140,42 @@ public sealed class CapturePolicyTests
         tracker.ContentSkipped(12, SkipReason.OwnWrite);
         Assert.Equal(SkipReason.None, tracker.CurrentSkip(12));
     }
+
+    private static ClipboardSnapshot Image(string? exe = "mspaint.exe") =>
+        new(1, SkipReason.None, null, exe, TestImages.Fake());
+
+    [Fact]
+    public void An_image_is_accepted()
+    {
+        Assert.Equal(SkipReason.None, CapturePolicy.Evaluate(Image(), CaptureSettings.Default));
+    }
+
+    [Fact]
+    public void An_image_is_skipped_while_saving_images_is_off()
+    {
+        var reason = CapturePolicy.Evaluate(Image(), CaptureSettings.Default with { CaptureImages = false });
+        Assert.Equal(SkipReason.ImagesOff, reason);
+        Assert.False(reason.IsSilent());
+    }
+
+    [Fact]
+    public void An_image_from_an_excluded_app_is_skipped()
+    {
+        var settings = new CaptureSettings(true, ["SnippingTool.exe"]);
+        Assert.Equal(SkipReason.ExcludedApp, CapturePolicy.Evaluate(Image("snippingtool.exe"), settings));
+    }
+
+    [Fact]
+    public void Content_that_is_neither_text_nor_an_image_is_not_text()
+    {
+        Assert.Equal(SkipReason.NotText, CapturePolicy.Evaluate(new ClipboardSnapshot(1, SkipReason.None, null, "explorer.exe"), CaptureSettings.Default));
+    }
+
+    [Theory]
+    [InlineData(1920, 1080, true)]
+    [InlineData(16384, 1600, true)]
+    [InlineData(16385, 10, false)]
+    [InlineData(0, 10, false)]
+    [InlineData(8000, 8000, false)]
+    public void Image_limits(int width, int height, bool fits) => Assert.Equal(fits, ImageLimits.Fits(width, height));
 }

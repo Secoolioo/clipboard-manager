@@ -89,6 +89,8 @@
             <TextBlock Text="{x:Static loc:Strings.MaxEntries}" VerticalAlignment="Center" TextWrapping="Wrap" />
             <ComboBox x:Name="MaxEntriesBox" Grid.Column="1" SelectionChanged="OnMaxEntriesChanged" />
           </Grid>
+          <CheckBox x:Name="ImagesBox" Style="{StaticResource Row}" Content="{x:Static loc:Strings.SaveImages}" Click="OnImagesClick" />
+          <TextBlock Style="{StaticResource Note}" Text="{x:Static loc:Strings.SaveImagesNote}" />
           <CheckBox x:Name="MemoryOnlyBox" Style="{StaticResource Row}" Content="{x:Static loc:Strings.MemoryOnly}" Click="OnMemoryOnlyClick" />
           <TextBlock Style="{StaticResource Note}" Text="{x:Static loc:Strings.MemoryOnlyNote}" />
           <Button Content="{x:Static loc:Strings.ClearHistoryButton}" HorizontalAlignment="Left" MinWidth="160" Click="OnClearHistory" />

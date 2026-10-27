@@ -1,3 +1,4 @@
+using System.Globalization;
 using ClipboardManager.Core.History;
 
 namespace ClipboardManager.Core.Search;
@@ -5,7 +6,8 @@ namespace ClipboardManager.Core.Search;
 /// <summary>
 /// Full scan on every keystroke: AND across whitespace-separated terms, ordinal and
 /// case-insensitive. A few thousand entries take well under a millisecond, so there is no index
-/// and no incremental state to keep consistent.
+/// and no incremental state to keep consistent. Images are found by a word for "image" in the UI
+/// language and by their size in pixels.
 /// </summary>
 public static class HistorySearch
 {
@@ -14,16 +16,26 @@ public static class HistorySearch
             ? []
             : query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-    public static HistorySnapshot Filter(HistorySnapshot source, string? query)
+    public static HistorySnapshot Filter(HistorySnapshot source, string? query, string imageWord = "")
     {
         ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(imageWord);
         var terms = ParseTerms(query);
         if (terms.Length == 0)
         {
             return source;
         }
 
-        return new HistorySnapshot(Match(source.Pinned, terms), Match(source.History, terms));
+        return new HistorySnapshot(Match(source.Pinned, terms, imageWord), Match(source.History, terms, imageWord));
+    }
+
+    /// <summary>What a query is matched against: the text, or for an image the word for "image" and its size.</summary>
+    public static string SearchableText(HistoryEntry entry, string imageWord)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return entry.Image is { } image
+            ? string.Create(CultureInfo.InvariantCulture, $"{imageWord} {image.Width} × {image.Height} {image.Width}x{image.Height}")
+            : entry.SearchText;
     }
 
     public static bool Matches(string text, string[] terms)
@@ -59,12 +71,12 @@ public static class HistorySearch
         return best;
     }
 
-    private static List<HistoryEntry> Match(IReadOnlyList<HistoryEntry> entries, string[] terms)
+    private static List<HistoryEntry> Match(IReadOnlyList<HistoryEntry> entries, string[] terms, string imageWord)
     {
         var result = new List<HistoryEntry>();
         foreach (var entry in entries)
         {
-            if (Matches(entry.SearchText, terms))
+            if (Matches(SearchableText(entry, imageWord), terms))
             {
                 result.Add(entry);
             }

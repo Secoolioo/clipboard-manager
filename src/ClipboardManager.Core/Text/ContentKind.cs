@@ -5,6 +5,7 @@ public enum ContentKind
     Text,
     Url,
     Path,
+    Image,
 }
 
 /// <summary>

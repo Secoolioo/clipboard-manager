@@ -76,8 +76,13 @@
         </Grid.ColumnDefinitions>
         <TextBlock x:Name="Icon" Style="{StaticResource Glyph}" Text="{Binding Glyph}" FontSize="14"
                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-        <TextBlock Grid.Column="1" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                   common:Highlight.Terms="{Binding Terms}" common:Highlight.Text="{Binding Preview}" />
+        <DockPanel Grid.Column="1" VerticalAlignment="Center">
+          <Image DockPanel.Dock="Left" Width="48" Height="28" Margin="0,0,10,0" Stretch="Uniform"
+                 Source="{Binding Thumbnail}" RenderOptions.BitmapScalingMode="HighQuality"
+                 Visibility="{Binding IsImage, Converter={StaticResource VisibleIf}}" />
+          <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                     common:Highlight.Terms="{Binding Terms}" common:Highlight.Text="{Binding Preview}" />
+        </DockPanel>
         <TextBlock Grid.Column="2" Text="{Binding LineInfo}" FontSize="11.5" Margin="8,0,0,0" VerticalAlignment="Center"
                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
         <Border Grid.Column="3" Margin="8,0,0,0" CornerRadius="4" Padding="6,1" VerticalAlignment="Center"
@@ -198,7 +203,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Focusable="False">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Focusable="False"
+                        Visibility="{Binding PreviewImage, Converter={StaticResource CollapsedIf}}">
             <TextBlock x:Name="PreviewBlock" Text="{Binding PreviewText}" FontSize="13" LineHeight="19">
               <TextBlock.Style>
                 <Style TargetType="TextBlock">
@@ -213,6 +219,13 @@
               </TextBlock.Style>
             </TextBlock>
           </ScrollViewer>
+          <!-- Stretch fills the box up to the picture's own size, so the thumbnail shown first and the
+               picture loaded after it take the same place. -->
+          <Image x:Name="PreviewPicture" Source="{Binding PreviewImage}" Stretch="Uniform"
+                 MaxWidth="{Binding PreviewImageWidth}" MaxHeight="{Binding PreviewImageHeight}"
+                 HorizontalAlignment="Left" VerticalAlignment="Top" RenderOptions.BitmapScalingMode="HighQuality"
+                 AutomationProperties.Name="{Binding PreviewMeta}"
+                 Visibility="{Binding PreviewImage, Converter={StaticResource VisibleIf}}" />
           <TextBlock Grid.Row="1" Text="{x:Static loc:Strings.Truncated}" FontStyle="Italic" FontSize="11.5" Margin="0,8,0,0"
                      Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                      Visibility="{Binding PreviewTruncated, Converter={StaticResource VisibleIf}}" />

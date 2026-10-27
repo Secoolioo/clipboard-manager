@@ -1,5 +1,6 @@
 using ClipboardManager.Core.Capture;
 using ClipboardManager.Core.Diagnostics;
+using ClipboardManager.Core.History;
 using ClipboardManager.Interop;
 
 namespace ClipboardManager.Clipboard;
@@ -8,13 +9,21 @@ namespace ClipboardManager.Clipboard;
 /// Reads the clipboard on its own thread so delayed rendering (Excel, RDP, VMs can block up to
 /// 30 s) never freezes the UI. "Latest wins": bursts of notifications collapse into one read of the
 /// current state. All checks happen inside a single OpenClipboard session, so the content cannot
-/// change between the privacy-marker check and the text read.
+/// change between the privacy-marker check and the read. Images are only copied inside the
+/// session; decoding them happens after the clipboard was released.
 /// </summary>
 internal sealed class ClipboardReader : IDisposable
 {
     private const string Category = "Reader";
     private const int CoalesceMilliseconds = 50;
+
+    // From here on a normalized picture leaves enough native imaging memory behind to collect right away.
+    private const long LargeImagePixels = 4L * 1024 * 1024;
     private static readonly int[] OpenBackoffMilliseconds = [5, 10, 20, 40, 80, 160];
+
+    // "PNG" first: lossless with transparency, and about five times smaller to copy than the bitmap.
+    private static readonly (uint Format, ClipboardImageFormat Kind)[] ImageFormats =
+        [(ClipboardFormats.Png, ClipboardImageFormat.Png), (User32.CF_DIB, ClipboardImageFormat.Dib)];
 
     private readonly IntPtr _ownWindow;
     private readonly FileLog _log;
@@ -38,7 +47,7 @@ internal sealed class ClipboardReader : IDisposable
         _thread = new Thread(Run) { IsBackground = true, Name = "Clipboard reader" };
     }
 
-    /// <summary>Raised on the reader thread with what was seen (text only when it may be stored).</summary>
+    /// <summary>Raised on the reader thread with what was seen (text or an image only when it may be stored).</summary>
     public event Action<ClipboardSnapshot>? SnapshotRead;
 
     public ClipboardGate Gate { get; }
@@ -134,18 +143,70 @@ internal sealed class ClipboardReader : IDisposable
             return;
         }
 
-        var snapshot = ReadSession(sequence);
+        var snapshot = ReadSession(sequence, out var image);
         _lastProcessedSequence = snapshot.Sequence;
-        if (snapshot.Text is not null && _breaker.Record(snapshot.Text, snapshot.SourceExe, Environment.TickCount64))
+
+        // Keyed on what was read, before a picture is decoded, so repeats count however long decoding takes.
+        if (ContentKey(snapshot.Text, image) is { } key && _breaker.Record(key, snapshot.SourceExe, Environment.TickCount64))
         {
             _log.Warning(Category, "Repeated identical clipboard updates; pausing reads for a few seconds");
+        }
+
+        if (image is not null)
+        {
+            snapshot = WithImage(snapshot, image);
         }
 
         SnapshotRead?.Invoke(snapshot);
     }
 
-    private ClipboardSnapshot ReadSession(uint sequenceBefore)
+    private static int? ContentKey(string? text, ClipboardImageData? image)
     {
+        if (text is not null)
+        {
+            return string.GetHashCode(text, StringComparison.Ordinal);
+        }
+
+        if (image is null)
+        {
+            return null;
+        }
+
+        var hash = default(HashCode);
+        hash.AddBytes(image.Data);
+        return hash.ToHashCode();
+    }
+
+    /// <summary>Decodes a copied picture outside the clipboard session (the app that copied it may already paste it).</summary>
+    private ClipboardSnapshot WithImage(ClipboardSnapshot snapshot, ClipboardImageData data)
+    {
+        SkipReason reason;
+        CapturedImage? image;
+        using (data)
+        {
+            reason = ImageCodec.Normalize(data, out image);
+        }
+
+        if (image is null || (long)image.Width * image.Height >= LargeImagePixels)
+        {
+            // WIC's native buffers are released by finalizers and the encoder's buffers sit on the large
+            // object heap: give the memory of a large picture back now instead of whenever the GC runs.
+            GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+            GC.WaitForPendingFinalizers();
+        }
+
+        if (image is null)
+        {
+            _log.Debug(Category, $"Copied image not stored ({reason})");
+            return snapshot with { ReaderSkip = reason };
+        }
+
+        return snapshot with { Image = image };
+    }
+
+    private ClipboardSnapshot ReadSession(uint sequenceBefore, out ClipboardImageData? image)
+    {
+        image = null;
         Gate.Enter();
         try
         {
@@ -157,7 +218,7 @@ internal sealed class ClipboardReader : IDisposable
 
             try
             {
-                return ReadOpenClipboard();
+                return ReadOpenClipboard(out image);
             }
             finally
             {
@@ -189,8 +250,9 @@ internal sealed class ClipboardReader : IDisposable
         return false;
     }
 
-    private ClipboardSnapshot ReadOpenClipboard()
+    private ClipboardSnapshot ReadOpenClipboard(out ClipboardImageData? image)
     {
+        image = null;
         var sequence = User32.GetClipboardSequenceNumber();
         if (sequence == Gate.OwnWriteSequence)
         {
@@ -218,18 +280,26 @@ internal sealed class ClipboardReader : IDisposable
             return new ClipboardSnapshot(sequence, SkipReason.MarkedBySource, null, null);
         }
 
-        // Images, files and other non-text content: let go of the clipboard right away (the app
-        // that copied it may want to paste it at this very moment). Nothing of it is ever read.
-        if (!User32.IsClipboardFormatAvailable(User32.CF_UNICODETEXT))
+        // Text wins when both are there (Excel cells, Word): the picture is a rendering of the same content.
+        var hasText = User32.IsClipboardFormatAvailable(User32.CF_UNICODETEXT);
+        var hasImage = User32.IsClipboardFormatAvailable(ClipboardFormats.Png) || User32.IsClipboardFormatAvailable(User32.CF_DIB);
+        if (!hasText && (!hasImage || !_settings.CaptureImages))
         {
-            return new ClipboardSnapshot(sequence, SkipReason.NotText, null, null);
+            // Files, other content, or a picture while images are off: let go of the clipboard right
+            // away (the app that copied it may want to paste it at this very moment). Nothing is read.
+            return new ClipboardSnapshot(sequence, hasImage ? SkipReason.ImagesOff : SkipReason.NotText, null, null);
         }
 
-        // Decide on app exclusion before the text is ever copied into our process.
+        // Decide on app exclusion before any content is ever copied into our process.
         var source = Kernel32.ProcessExeOfWindow(owner) ?? _foregroundExe;
         if (_settings.IsExcluded(source))
         {
             return new ClipboardSnapshot(sequence, SkipReason.ExcludedApp, null, source);
+        }
+
+        if (!hasText)
+        {
+            return ReadImage(sequence, source, out image);
         }
 
         var handle = User32.GetClipboardData(User32.CF_UNICODETEXT);
@@ -250,9 +320,76 @@ internal sealed class ClipboardReader : IDisposable
         }
 
         var text = CopyText(handle, bytes);
-        return text is null
-            ? new ClipboardSnapshot(sequence, SkipReason.ReadFailed, null, source)
+        if (text is null)
+        {
+            return new ClipboardSnapshot(sequence, SkipReason.ReadFailed, null, source);
+        }
+
+        // Some apps put an empty text next to a picture: keep the picture then. Line breaks and tabs
+        // alone (empty spreadsheet cells) stay a blank text, so no rendering of the cells is requested.
+        return hasImage && _settings.CaptureImages && text.AsSpan().Trim(' ').IsEmpty
+            ? ReadImage(sequence, source, out image)
             : new ClipboardSnapshot(sequence, SkipReason.None, text, source);
+    }
+
+    /// <summary>
+    /// Copies the first readable image format. Only its header is checked here, so an oversized
+    /// picture costs nothing; a "PNG" that is no PNG falls back to the bitmap.
+    /// </summary>
+    private static ClipboardSnapshot ReadImage(uint sequence, string? source, out ClipboardImageData? image)
+    {
+        image = null;
+        foreach (var (format, kind) in ImageFormats)
+        {
+            if (!User32.IsClipboardFormatAvailable(format))
+            {
+                continue;
+            }
+
+            var handle = User32.GetClipboardData(format);
+            var bytes = handle == IntPtr.Zero ? 0 : Kernel32.GlobalSize(handle);
+            if (bytes == 0)
+            {
+                continue;
+            }
+
+            if (bytes > (nuint)ImageLimits.MaxClipboardBytes)
+            {
+                return new ClipboardSnapshot(sequence, SkipReason.TooLarge, null, source);
+            }
+
+            var pointer = Kernel32.GlobalLock(handle);
+            if (pointer == IntPtr.Zero)
+            {
+                continue;
+            }
+
+            try
+            {
+                SkipReason check;
+                unsafe
+                {
+                    check = ImageCodec.CheckHeader(kind, new ReadOnlySpan<byte>((void*)pointer, (int)bytes));
+                }
+
+                if (check == SkipReason.TooLarge)
+                {
+                    return new ClipboardSnapshot(sequence, SkipReason.TooLarge, null, source);
+                }
+
+                if (check == SkipReason.None)
+                {
+                    image = ClipboardImageData.Copy(kind, pointer, (int)bytes);
+                    return new ClipboardSnapshot(sequence, SkipReason.None, null, source);
+                }
+            }
+            finally
+            {
+                Kernel32.GlobalUnlock(handle);
+            }
+        }
+
+        return new ClipboardSnapshot(sequence, SkipReason.NotText, null, source);
     }
 
     private static bool IsMarkedPrivate()
@@ -322,24 +459,27 @@ internal sealed class ClipboardReader : IDisposable
     private sealed class FloodBreaker
     {
         private const int Threshold = 10;
-        private const long WindowMs = 2000;
+
+        // Identical reads less than this apart belong to one burst, also when reading a large picture is slow.
+        private const long GapMs = 1000;
         private const long CooldownMs = 10_000;
 
         private int _hash;
         private int _count;
-        private long _windowStart;
+        private long _last;
         private long _openUntil;
 
         public bool IsOpen(long now) => now < _openUntil;
 
-        public bool Record(string text, string? source, long now)
+        public bool Record(int content, string? source, long now)
         {
-            var hash = HashCode.Combine(string.GetHashCode(text, StringComparison.Ordinal), source);
-            if (hash != _hash || now - _windowStart > WindowMs)
+            var hash = HashCode.Combine(content, source);
+            var repeated = hash == _hash && now - _last <= GapMs;
+            _hash = hash;
+            _last = now;
+            if (!repeated)
             {
-                _hash = hash;
                 _count = 1;
-                _windowStart = now;
                 return false;
             }
 

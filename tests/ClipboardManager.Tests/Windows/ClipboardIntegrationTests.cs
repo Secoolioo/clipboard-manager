@@ -175,33 +175,168 @@ public sealed class ClipboardIntegrationTests
     });
 
     [Fact]
-    public Task A_copied_image_is_skipped_and_left_untouched() => WithOwnerWindow(async owner =>
+    public Task A_copied_image_is_captured_and_left_untouched() => WithOwnerWindow(async owner =>
     {
         Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
 
-        // 1x1 pixel, 32 bpp CF_DIB (BITMAPINFOHEADER + one pixel), like a screenshot tool puts it.
-        var dib = new byte[44];
-        BitConverter.GetBytes(40).CopyTo(dib, 0);
-        BitConverter.GetBytes(1).CopyTo(dib, 4);
-        BitConverter.GetBytes(1).CopyTo(dib, 8);
-        BitConverter.GetBytes((short)1).CopyTo(dib, 12);
-        BitConverter.GetBytes((short)32).CopyTo(dib, 14);
-        BitConverter.GetBytes(4).CopyTo(dib, 20);
-        dib[40] = 0x30;
-        dib[41] = 0x60;
-        dib[42] = 0x90;
-        const uint CF_DIB = 8;
-        Put(owner, null, (CF_DIB, dib));
+        // 1x1 pixel, 32 bpp CF_DIB with alpha 0, like a screenshot tool puts it.
+        Put(owner, null, (User32.CF_DIB, TestImages.Dib(1, 1, 32, (_, _) => (0x30, 0x60, 0x90, 0))));
         var sequence = User32.GetClipboardSequenceNumber();
 
         var snapshot = await ReadAsync(new ClipboardGate());
 
-        Assert.Equal(SkipReason.NotText, snapshot.ReaderSkip);
+        Assert.Equal(SkipReason.None, snapshot.ReaderSkip);
         Assert.Null(snapshot.Text);
+        Assert.Equal((1, 1), (snapshot.Image!.Width, snapshot.Image.Height));
+
+        // An alpha channel that is all zero means "no alpha": the pixel is stored opaque.
+        Assert.Equal([0x30, 0x60, 0x90, 255], TestImages.Pixels(snapshot.Image.Png).Bgra);
 
         // Reading never renders, changes or empties the image: it can still be pasted.
         Assert.Equal(sequence, User32.GetClipboardSequenceNumber());
-        Assert.True(User32.IsClipboardFormatAvailable(CF_DIB));
+        Assert.True(User32.IsClipboardFormatAvailable(User32.CF_DIB));
+    });
+
+    [Fact]
+    public Task Png_is_preferred_over_the_bitmap() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        var png = TestImages.Png(2, 2, (_, _) => (0, 0, 255, 255));
+        Put(owner, null, (ClipboardFormats.Png, png), (User32.CF_DIB, TestImages.Dib(2, 2, 24, (_, _) => (255, 0, 0, 255))));
+
+        var snapshot = await ReadAsync(new ClipboardGate());
+
+        Assert.Equal(255, TestImages.Pixels(snapshot.Image!.Png).Bgra[2]);
+    });
+
+    [Fact]
+    public Task A_broken_png_falls_back_to_the_bitmap() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        Put(owner, null, (ClipboardFormats.Png, [1, 2, 3, 4, 5, 6, 7, 8]), (User32.CF_DIB, TestImages.Dib(2, 2, 24, (_, _) => (255, 0, 0, 255))));
+
+        var snapshot = await ReadAsync(new ClipboardGate());
+
+        Assert.Equal(255, TestImages.Pixels(snapshot.Image!.Png).Bgra[0]);
+    });
+
+    [Fact]
+    public Task Text_wins_when_a_picture_comes_with_it() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        Put(owner, "A1\tB1", (User32.CF_DIB, TestImages.Dib(2, 2, 24, (_, _) => (255, 0, 0, 255))));
+
+        var snapshot = await ReadAsync(new ClipboardGate());
+
+        Assert.Equal("A1\tB1", snapshot.Text);
+        Assert.Null(snapshot.Image);
+    });
+
+    [Fact]
+    public Task An_empty_text_next_to_a_picture_keeps_the_picture() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        Put(owner, " ", (User32.CF_DIB, TestImages.Dib(2, 2, 24, (_, _) => (255, 0, 0, 255))));
+
+        var snapshot = await ReadAsync(new ClipboardGate());
+
+        Assert.Equal(SkipReason.None, snapshot.ReaderSkip);
+        Assert.Null(snapshot.Text);
+        Assert.NotNull(snapshot.Image);
+    });
+
+    [Fact]
+    public Task Empty_spreadsheet_cells_stay_a_blank_text_and_no_picture_is_rendered() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        Put(owner, "\t\r\n", (User32.CF_DIB, TestImages.Dib(2, 2, 24, (_, _) => (255, 255, 255, 255))));
+
+        var snapshot = await ReadAsync(new ClipboardGate());
+
+        Assert.Null(snapshot.Image);
+        Assert.Equal(SkipReason.Blank, CapturePolicy.Evaluate(snapshot, CaptureSettings.Default));
+    });
+
+    [Fact]
+    public Task Images_are_not_read_while_saving_images_is_off() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        Put(owner, null, (User32.CF_DIB, TestImages.Dib(2, 2, 24, (_, _) => (255, 0, 0, 255))));
+
+        var snapshot = await ReadAsync(new ClipboardGate(), CaptureSettings.Default with { CaptureImages = false });
+
+        Assert.Equal(SkipReason.ImagesOff, snapshot.ReaderSkip);
+        Assert.Null(snapshot.Image);
+    });
+
+    [Fact]
+    public Task An_image_from_an_excluded_app_is_not_read() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        Put(owner, null, (User32.CF_DIB, TestImages.Dib(2, 2, 24, (_, _) => (255, 0, 0, 255))));
+        var self = Path.GetFileName(Environment.ProcessPath)!;
+
+        var snapshot = await ReadAsync(new ClipboardGate(), new CaptureSettings(true, [self]));
+
+        Assert.Equal(SkipReason.ExcludedApp, snapshot.ReaderSkip);
+        Assert.Null(snapshot.Image);
+    });
+
+    [Theory]
+    [InlineData("ExcludeClipboardContentFromMonitorProcessing", new byte[] { 1 })]
+    [InlineData("Clipboard Viewer Ignore", new byte[] { 0x49, 0 })]
+    [InlineData("CanIncludeInClipboardHistory", new byte[] { 0, 0, 0, 0 })]
+    public Task Privacy_markers_prevent_reading_an_image(string formatName, byte[] data) => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        Put(owner, null, (User32.CF_DIB, TestImages.Dib(2, 2, 24, (_, _) => (255, 0, 0, 255))), (User32.RegisterClipboardFormat(formatName), data));
+
+        var snapshot = await ReadAsync(new ClipboardGate());
+
+        Assert.Equal(SkipReason.MarkedBySource, snapshot.ReaderSkip);
+        Assert.Null(snapshot.Image);
+    });
+
+    [Fact]
+    public Task An_oversized_image_is_skipped_from_its_header() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        var header = TestImages.Dib(1, 1, 32, (_, _) => (1, 2, 3, 4));
+        BitConverter.GetBytes(20_000).CopyTo(header, 4);
+        BitConverter.GetBytes(20_000).CopyTo(header, 8);
+        Put(owner, null, (User32.CF_DIB, header));
+
+        var snapshot = await ReadAsync(new ClipboardGate());
+
+        Assert.Equal(SkipReason.TooLarge, snapshot.ReaderSkip);
+        Assert.Null(snapshot.Image);
+    });
+
+    [Fact]
+    public Task An_image_round_trips_through_writer_and_reader() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        using var gate = new ClipboardGate();
+        var image = TestImages.Captured(30, 20, transparent: true);
+
+        Assert.NotNull(await new ClipboardWriter(owner, gate, FileLog.Null).WriteImageAsync(image.Png));
+        Assert.True(User32.IsClipboardFormatAvailable(User32.CF_DIB));
+        gate.OwnWriteSequence = 0;
+        var snapshot = await ReadAsync(gate);
+
+        // The reader prefers our "PNG", which normalizes to exactly the stored picture: no duplicate entry.
+        Assert.Equal(SkipReason.None, snapshot.ReaderSkip);
+        Assert.Equal(image.Png, snapshot.Image!.Png);
+    });
+
+    [Fact]
+    public Task Own_image_writes_are_not_read_back() => WithOwnerWindow(async owner =>
+    {
+        Assert.SkipUnless(Enabled, "Set CM_INTEGRATION=1 to use the real clipboard.");
+        using var gate = new ClipboardGate();
+        await new ClipboardWriter(owner, gate, FileLog.Null).WriteImageAsync(TestImages.Captured(8, 8).Png);
+
+        Assert.Null(await TryReadAsync(gate, null, owner, TimeSpan.FromSeconds(1)));
     });
 
     [Fact]

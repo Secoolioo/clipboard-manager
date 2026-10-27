@@ -44,6 +44,20 @@ public sealed class LocalizationTests
     }
 
     [Fact]
+    public void Image_sizes_are_localized()
+    {
+        Strings.Apply(LanguagePreference.German);
+        Assert.Equal("Bild · 1920 × 1080", Strings.ImageRow(1920, 1080));
+        Assert.Equal("1,5 MB", Strings.FileSize(1_572_864));
+        Assert.Equal("1 KB", Strings.FileSize(100));
+
+        Strings.Apply(LanguagePreference.English);
+        Assert.Equal("Image · 1920 × 1080", Strings.ImageRow(1920, 1080));
+        Assert.Equal("1.5 MB", Strings.FileSize(1_572_864));
+        Assert.Equal("146 KB", Strings.FileSize(150_000));
+    }
+
+    [Fact]
     public void Every_skip_reason_with_a_message_has_text_in_both_languages()
     {
         foreach (var language in new[] { LanguagePreference.German, LanguagePreference.English })

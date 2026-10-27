@@ -587,7 +587,8 @@ internal sealed class AppController : ISettingsHost, IDisposable
             _ = _worker.SetMemoryOnlyAsync(next.MemoryOnly, discard);
         }
 
-        if (previous.SkipDetectedSecrets != next.SkipDetectedSecrets || !previous.ExcludedApps.SequenceEqual(next.ExcludedApps, StringComparer.OrdinalIgnoreCase))
+        if (previous.SkipDetectedSecrets != next.SkipDetectedSecrets || previous.SkipImages != next.SkipImages ||
+            !previous.ExcludedApps.SequenceEqual(next.ExcludedApps, StringComparer.OrdinalIgnoreCase))
         {
             _capture.Settings = CaptureSettingsOf(next);
         }
@@ -599,7 +600,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
     }
 
     private static CaptureSettings CaptureSettingsOf(AppSettings settings) =>
-        new(settings.SkipDetectedSecrets, settings.ExcludedApps.ToArray());
+        new(settings.SkipDetectedSecrets, settings.ExcludedApps.ToArray(), CaptureImages: !settings.SkipImages);
 
     private void ApplyDisplayAffinity()
     {
