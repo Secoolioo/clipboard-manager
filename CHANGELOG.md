@@ -6,6 +6,36 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-27
+
+Images in the history – asked for in [Discussion #5](https://github.com/Secoolioo/clipboard-manager/discussions/5).
+Thanks @DetroNot74!
+
+### Added
+
+- Screenshots and copied pictures are saved in the history. The list shows a thumbnail, the
+  preview (<kbd>Tab</kbd>) the picture itself, and <kbd>Enter</kbd> puts it back on the clipboard:
+  as PNG with transparency for modern apps and as a bitmap for all others (Paint, older programs).
+  Typing "image" (German: "Bild") or a size such as "1920" finds them.
+- *Settings → History → Save images* (on by default). Pictures are stored as PNG without metadata;
+  unpinned ones use up to 128 MB together – the oldest pictures go first, texts are not affected.
+- The privacy rules cover pictures as well: password-manager markers, excluded apps, pause and
+  *Ignore next copy* are decided before a picture is read; in memory-only mode pictures stay in RAM;
+  deleted pictures are scrubbed from the database files like text.
+- The self-test of the published EXE covers the image codec, and in CI an image round trip
+  through the real clipboard.
+
+### Changed
+
+- When a copy holds both text and a picture (Excel cells, Word), the text is saved, as before.
+- The hint for a copy that is not saved now reads "not text or an image (e.g. files)", and says so
+  when saving images is off.
+- Clearing the history in memory-only mode, or leaving that mode, now gives the memory of the
+  removed entries back right away.
+- The history database moves to schema version 2 at the first start (a one-time rebuild of its
+  table). Versions before 0.11 no longer read it afterwards: they start with an empty history in
+  memory and leave the file untouched, so going back to 0.10 is not recommended.
+
 ## [0.10.2] - 2026-10-07
 
 Faster search while typing and more resilience, after a 2,000-cycle stress test of the popup.
@@ -99,7 +129,8 @@ First public release.
 - Single self-contained EXE for x64 and ARM64, self-test mode, SHA-256 hashes and build provenance
   attestations for releases.
 
-[Unreleased]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.2...HEAD
+[Unreleased]: https://github.com/Secoolioo/clipboard-manager/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.2...v0.11.0
 [0.10.2]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/Secoolioo/clipboard-manager/compare/v0.9.0...v0.10.0
