@@ -6,6 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-02
+
+A movable window that can stay open – asked for in [#12](https://github.com/Secoolioo/clipboard-manager/issues/12).
+Thanks @Peter362187!
+
+### Added
+
+- The history window can be moved: drag its search row (around the box) or the hint bar at the
+  bottom. It opens at that spot from then on, also after a restart; a double-click there, or
+  *Settings → History window → Reset position*, puts it back. A spot that no screen shows any more
+  (monitor unplugged, layout changed) falls back to the default.
+- *Keep open*: the pin next to the gear (or *Settings → History window*) keeps the window visible
+  and on top when you click into another app. Clicking an entry or pressing <kbd>Enter</kbd>
+  copies it and gives the focus back to that app, so <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes there; the
+  window stays. New copies appear in the list while you are not in the window or pointing at it,
+  and the search, the selection and Undo are kept. The shortcut brings the window back to the
+  front; <kbd>Esc</kbd>, the new ✕ button or a click on the tray icon close it. Off by default:
+  without the pin the window closes on a click elsewhere, as before.
+
+### Changed
+
+- The window keeps its left edge when <kbd>Tab</kbd> switches the preview, once it was moved.
+- An open window gets its new size right away when the Windows text size or the displays change.
+- Screen readers announce the gear button in the window's language ("Einstellungen" in German).
+
 ## [0.11.0] - 2026-10-27
 
 Images in the history – asked for in [Discussion #5](https://github.com/Secoolioo/clipboard-manager/discussions/5).
@@ -129,7 +154,8 @@ First public release.
 - Single self-contained EXE for x64 and ARM64, self-test mode, SHA-256 hashes and build provenance
   attestations for releases.
 
-[Unreleased]: https://github.com/Secoolioo/clipboard-manager/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/Secoolioo/clipboard-manager/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/Secoolioo/clipboard-manager/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.2...v0.11.0
 [0.10.2]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/Secoolioo/clipboard-manager/compare/v0.10.0...v0.10.1
