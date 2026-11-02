@@ -304,11 +304,10 @@ internal sealed class PopupController : IPopupActions
     /// </summary>
     private void BringToFront(PopupSource source)
     {
+        // As in Show: from the desktop, the taskbar or the tray there is nothing to go back to, and an
+        // app remembered earlier must not get the focus (and the Ctrl+V) instead.
         var foreground = User32.GetForegroundWindow();
-        if (source == PopupSource.Hotkey && IsRestorable(foreground))
-        {
-            _previousForeground = foreground;
-        }
+        _previousForeground = source == PopupSource.Hotkey && IsRestorable(foreground) ? foreground : IntPtr.Zero;
 
         StatusRequested?.Invoke(this, EventArgs.Empty);
         try
@@ -327,11 +326,9 @@ internal sealed class PopupController : IPopupActions
     /// <summary>A click into the kept-open window while another app is active: that app gets the focus back after a copy.</summary>
     public void ActivatingByClick()
     {
+        // Coming from the desktop or the taskbar: forget the app remembered earlier (see BringToFront).
         var foreground = User32.GetForegroundWindow();
-        if (IsRestorable(foreground))
-        {
-            _previousForeground = foreground;
-        }
+        _previousForeground = IsRestorable(foreground) ? foreground : IntPtr.Zero;
     }
 
     /// <summary>After a copy in a kept-open window: back to the app the user came from, so Ctrl+V pastes there.</summary>
@@ -587,35 +584,41 @@ internal sealed class PopupController : IPopupActions
     /// <summary>
     /// The popup works on a snapshot. It is refreshed at most once, and only before the user did
     /// anything: when a capture that was in flight at opening lands (within 400 ms), or when the
-    /// history finishes loading after the popup opened during startup.
+    /// history finishes loading after the popup opened during startup. A window kept open also
+    /// catches up on later copies (see <see cref="RefreshIfIdle"/>).
     /// </summary>
     private void OnIndexChanged(object? sender, EventArgs e)
     {
-        if (IsOpen && _viewModel.KeepOpen)
+        if (!IsOpen || _index.Version == _snapshotVersion)
+        {
+            return;
+        }
+
+        if (!_refreshed && !_window.HasUserInput)
+        {
+            var captureLanded = Environment.TickCount64 - _openedAt < 400;
+            var loadFinished = !_loadedAtOpen && _index.IsLoaded;
+            if (captureLanded || loadFinished)
+            {
+                _refreshed = true;
+                try
+                {
+                    LoadSnapshot();
+                }
+                catch (Exception ex)
+                {
+                    Fail(ex);
+                }
+
+                return;
+            }
+        }
+
+        // A window kept open also shows the copies made later, once the user is not in it.
+        if (_viewModel.KeepOpen)
         {
             _stale = true;
             RefreshIfIdle();
-            return;
-        }
-
-        if (!IsOpen || _refreshed || _window.HasUserInput || _index.Version == _snapshotVersion)
-        {
-            return;
-        }
-
-        var captureLanded = Environment.TickCount64 - _openedAt < 400;
-        var loadFinished = !_loadedAtOpen && _index.IsLoaded;
-        if (captureLanded || loadFinished)
-        {
-            _refreshed = true;
-            try
-            {
-                LoadSnapshot();
-            }
-            catch (Exception ex)
-            {
-                Fail(ex);
-            }
         }
     }
 
