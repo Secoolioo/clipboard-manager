@@ -238,7 +238,7 @@ public sealed class PopupViewModel : ObservableObject
         Rebuild(selectDefault: false);
         PruneRows();
 
-        var selected = keep is { } id
+        PopupRow? selected = keep is { } id
             ? _rows.OfType<EntryRow>().FirstOrDefault(r => r.Entry.Id == id)
             : keepMore ? _rows.OfType<MoreRow>().FirstOrDefault() : null;
         Selected = selected ?? DefaultSelection([.. _rows], HistorySearch.ParseTerms(_query).Length > 0);

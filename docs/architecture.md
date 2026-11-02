@@ -59,7 +59,12 @@ Three execution contexts, all idle without CPU load:
   hidden. While open it works on a snapshot, so the list never shifts under the cursor. Image rows
   decode their thumbnail (kept in the index) the first time they are shown; the preview pane shows
   it at once and loads the picture itself off the UI thread, one at a time and never during the
-  pre-warm.
+  pre-warm. The search row (around the box) and the hint bar drag the window; the spot is saved
+  once per drag, in physical pixels, and checked against the monitors on every open
+  (`PopupPlacement`, unit-tested). With *keep open* (the pin) it stays up when another window is
+  activated: a copy gives the focus back to the app the user came from (remembered from the
+  hotkey or from `WM_MOUSEACTIVATE`), and new captures reach its snapshot only while the user is
+  neither in the window nor pointing at it, keeping the search, the selection and Undo.
 - **UpdateService** (`ClipboardManager.Updates`) is the only networking code; an instance exists
   only for one click on *Check for updates* or *Install update*. It asks the GitHub API for the
   latest release, then streams the EXE for the process architecture to `<exe>.new` while hashing
@@ -139,12 +144,12 @@ budget strictly oldest first within its kind, so pictures never push texts out a
 
 | Category | What | Where it runs |
 |---|---|---|
-| Unit | policy, secrets, search, previews, settings, hotkeys, popup selection rules and image preview loading, quiet-start rules, localization | everywhere |
+| Unit | policy, secrets, search, previews, settings, hotkeys, popup selection rules, image preview loading and kept-open refreshes, popup placement (DPI, clamping, negative monitors), quiet-start rules, localization | everywhere |
 | Image codec | DIB layouts (24/32 bit, top-down, bit fields, V5 alpha, palettes), PNG, broken and oversized headers, metadata removal, same picture as PNG and DIB, thumbnails, the bitmap written back | everywhere |
 | Store | real SQLite: dedupe, retention + size and image budgets, pins, undo, images, the schema 1 → 2 migration, recovery, exclusive lock, ordering | everywhere |
 | Privacy | log never contains content, deleted/memory-only text and pictures never on disk, no networking outside the updater, no unexpected native calls | everywhere |
 | Update | SemVer order, asset choice, `SHA256SUMS.txt` and release JSON parsing, downloads against a fake GitHub (hash/size mismatch, foreign redirects, rate limit, offline), EXE swap and rollback on temp files | everywhere |
-| Windows | autostart against an isolated registry subtree, popup window behavior (cloaked) | everywhere |
+| Windows | autostart against an isolated registry subtree, popup window behavior (cloaked): Alt+F4, closing on deactivation only without the pin, pin and close button, click activation, pin ↔ setting, saved and reset spot | everywhere |
 | Integration | the real clipboard: Unicode round trip, own writes, all privacy markers, locked clipboard, size limit; pictures: capture, `"PNG"` before `CF_DIB`, text wins, images off, exclusion and markers, oversized headers, write → read round trip | CI (`CM_INTEGRATION=1`) |
 
 The published EXE is additionally run with `--selftest` in CI on x64 and ARM64; it includes the image
@@ -162,13 +167,14 @@ codec (a 4K screenshot), and on x64 an image round trip through the real clipboa
 | 6 | **Autostart via HKCU Run**, `StartupApproved` only read (own value cleared on explicit re-enable) | visible and switchable in Task Manager; no admin; Task Scheduler entries are hidden from users | Startup folder shortcut, Task Scheduler |
 | 7 | **No `RegisterApplicationRestart`** | needs WER consent and 60 s uptime; Windows' "restart apps after sign-in" could start the app although autostart is off | restart registration |
 | 8 | **Native tray menu** | the rescue path when the hotkey is taken: correct DPI, keyboard and screen-reader behavior; light-only in dark mode is accepted | WPF ContextMenu |
-| 9 | **Fixed popup position** (upper third of the active monitor) | predictable for muscle memory; caret positions are unavailable in Chromium/Electron/Terminal | caret- or mouse-anchored |
+| 9 | **Default popup position, movable and remembered** (upper third of the active monitor until the user drags it; from 0.12 that spot is kept, also across restarts, and falls back to the default when no screen shows it) | predictable for muscle memory; caret positions are unavailable in Chromium/Electron/Terminal; a remembered spot stays predictable and lets the window sit beside the work ([#12](https://github.com/Secoolioo/clipboard-manager/issues/12)) | caret- or mouse-anchored, a spot per monitor, resizing |
 | 10 | **Always merge duplicates** (no setting) | predictable "moves to the top" behavior; identical rows would make selection ambiguous | optional setting |
 | 11 | **Memory-only history** instead of "clear on exit" | unpinned entries never reach the disk, no work during shutdown, covers crashes | clear at exit |
 | 12 | **GPL-3.0-or-later** | keeps derivatives open and credits intact; the bundled .NET runtime and WPF native libraries are treated as System Libraries of the runtime (GPLv3 §1) and their notices ship with every release | MIT, Apache-2.0 |
-| 13 | **Copy, not auto-paste**, in v1 | predictable; focus is returned to the previous app so Ctrl+V lands right; `Shift+Enter` is reserved for a later "copy and paste" | auto-paste via `SendInput` |
+| 13 | **Copy, not auto-paste**, in v1 | predictable; focus is returned to the previous app so Ctrl+V lands right (also when the window is kept open, see #19); `Shift+Enter` is reserved for a later "copy and paste" | auto-paste via `SendInput` |
 | 14 | **Exit on WM_QUERYENDSESSION** | WPF calls `Shutdown()` when `SessionEnding` is not cancelled, and cancelling would block logoff (or get the background app killed). Every capture is already committed, so the app closes its services in a bounded time there; if the user aborts the shutdown, the app starts again at the next sign-in | wait for WM_ENDSESSION |
 | 15 | **No initial capture at startup** | content copied while the app was not running (possibly during a pause or an "ignore next copy" of an earlier run) is not recorded | read the clipboard once at start |
 | 16 | **Updates only on an explicit click, swapped in place** | the privacy promise allows network access only when the user asks for it, and then only to GitHub; one EXE without an installer updates without admin rights: the verified download installs itself once the running version has exited – it moves the previous EXE to `*.old` and copies itself to the same path, so autostart entry and shortcuts stay valid; settings and history live in `%LOCALAPPDATA%`. Renaming the running EXE instead would leave a single-file process reading assemblies from the wrong file. `--finish-update <pid>` and `--updated-from <pid>` are a contract every later version must keep, or an update would leave no instance running | automatic or periodic checks, a separate updater EXE, MSIX/winget, an elevated installer |
 | 17 | **Quiet autostart** (below-normal priority, optional work and notices deferred) | sign-in is when every startup app competes for CPU and disk; in the first minute only capture and the hotkey matter, and a toast or window at login is noise | Task Scheduler with a start delay (hidden from users), a fixed sleep before starting (hotkey and capture would be missing), full start at normal priority |
 | 18 | **Pictures as normalized PNG**; text wins when a copy has both; `"PNG"` + 24-bit `CF_DIB` on white when copying back | one lossless, compact format whatever the source offered (PNG, bitmap, synthesized from GDI), so duplicates match and no metadata of the source survives; spreadsheet and document copies keep behaving as before; PNG keeps transparency for modern apps, the DIB on white looks right in Paint and older programs, and Windows synthesizes the other bitmap formats from it | storing the source bytes as they came (keeps metadata, bitmaps are ~4× larger, duplicates by source), images over text, writing `CF_DIBV5` (stops Windows from synthesizing), delayed rendering on paste (exit handling) |
+| 19 | **Keep open is opt-in** (pin in the window, mirrored in the settings); off, the popup closes on deactivation as before | the default stays a quick "hotkey, pick, gone" tool; pinned, it stays visible and topmost next to the work, a copy returns the focus so Ctrl+V lands in the previous app, and the list never shifts while the user is in it or pointing at it | always staying open, a separate floating mode, a shortcut for the pin |

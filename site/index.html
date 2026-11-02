@@ -58,6 +58,7 @@
     "Screenshots and copied pictures with thumbnails and a large preview",
     "Instant search as you type",
     "Pinned snippets",
+    "Movable window that can stay open beside your work",
     "Keyboard-first: Ctrl+Shift+V, type, Enter",
     "Local only: no account, no cloud, no telemetry",
     "Respects the “do not record” markers of password managers",
@@ -134,6 +135,14 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "Yes. Clipboard Manager does not change or disable the Windows clipboard history, so both work side by side. It opens with Ctrl+Shift+V by default, because Windows keeps Win+V for itself. You can pick another shortcut in Settings, and if Ctrl+Shift+V is already taken when the app starts, it falls back to Win+Alt+V and tells you."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I move the window or keep it open?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, since version 0.12. Drag the search row or the hint bar at the bottom to move the window; it opens there from then on, also after a restart, and a double-click there puts it back. The pin next to the gear keeps it open when you click into another app: clicking an entry copies it and gives the focus back to that app, so Ctrl+V pastes there. The shortcut brings it back to the front; Esc or the close button close it. Settings → History window has the same option and resets the position."
       }
     },
     {
@@ -751,6 +760,13 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
           <summary><h3>Can I keep using Win+V?</h3></summary>
           <div class="answer">
             <p>Yes. Clipboard Manager does not change or disable the Windows clipboard history, so both work side by side. It opens with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> by default, because Windows keeps Win+V for itself. You can pick another shortcut in Settings, and if <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> is already taken when the app starts, it falls back to <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>V</kbd> and tells you.</p>
+          </div>
+        </details>
+        <details>
+          <summary><h3>Can I move the window or keep it open?</h3></summary>
+          <div class="answer">
+            <p>Yes, since version 0.12. Drag the search row or the hint bar at the bottom to move the window; it opens there from then on, also after a restart, and a double-click there puts it back.</p>
+            <p>The pin next to the gear keeps it open when you click into another app: clicking an entry copies it and gives the focus back to that app, so <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes there. The shortcut brings it back to the front; <kbd>Esc</kbd> or the close button close it. <em>Settings → History window</em> has the same option and resets the position.</p>
           </div>
         </details>
         <details>
