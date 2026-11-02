@@ -39,6 +39,44 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="HorizontalAlignment" Value="Center" />
     </Style>
+    <!-- Flat buttons in the search row. The toggle draws its own chrome: the theme's checked state is a
+         large accent fill, too loud for a small "keep open" pin. -->
+    <Style x:Key="ChromeButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Cursor" Value="Arrow" />
+    </Style>
+    <Style x:Key="ChromeToggle" TargetType="ToggleButton">
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Cursor" Value="Arrow" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ToggleButton">
+            <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+              <TextBlock x:Name="PinGlyph" Style="{StaticResource Glyph}" Text="&#xE718;" FontSize="14"
+                         Foreground="{TemplateBinding Foreground}" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="PinGlyph" Property="Text" Value="&#xE841;" />
+                <Setter TargetName="PinGlyph" Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
 
     <DataTemplate DataType="{x:Type local:HeaderRow}">
       <TextBlock Text="{Binding Display}" FontSize="11" FontWeight="SemiBold" Margin="2,10,0,2"
@@ -112,41 +150,57 @@
         <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
 
-      <!-- Search -->
-      <Grid Margin="16,12,10,8">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" FontSize="16" Margin="0,0,10,0"
-                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-        <Grid Grid.Column="1">
-          <TextBox x:Name="Search" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
-                   FontSize="16" BorderThickness="0" Background="Transparent" Padding="2,6"
-                   VerticalContentAlignment="Center"
-                   AutomationProperties.Name="{x:Static loc:Strings.SearchPlaceholder}"
-                   AutomationProperties.HelpText="{x:Static loc:Strings.SearchHelp}" />
-          <TextBlock Text="{x:Static loc:Strings.SearchPlaceholder}" FontSize="16" Margin="6,0,0,0" IsHitTestVisible="False"
-                     VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                     Visibility="{Binding Query, Converter={StaticResource CollapsedIf}}" />
-        </Grid>
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="10,0,6,0" VerticalAlignment="Center"
-                    AutomationProperties.Name="{Binding StatusText}">
-          <TextBlock x:Name="ResultsLive" Text="{Binding ResultsText}" FontSize="12" Margin="0,0,14,0" VerticalAlignment="Center"
-                     Foreground="{DynamicResource TextFillColorTertiaryBrush}" AutomationProperties.LiveSetting="Polite"
-                     Visibility="{Binding ResultsText, Converter={StaticResource VisibleIf}}" />
-          <TextBlock x:Name="StatusGlyph" Style="{StaticResource Glyph}" FontSize="12" Margin="0,0,6,0" Text="&#xE73E;"
-                     Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
-          <TextBlock Text="{Binding StatusText}" FontSize="12" VerticalAlignment="Center"
+      <!-- Search. Everything around the box (glyph, status, edges) drags the window; the box, the
+           buttons and the list handle their own clicks. -->
+      <Border x:Name="DragStrip" Padding="16,12,10,8" Background="Transparent" Cursor="SizeAll"
+              MouseLeftButtonDown="OnDragAreaMouseDown">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" FontSize="16" Margin="0,0,10,0"
                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-        </StackPanel>
-        <Button x:Name="SettingsButton" Grid.Column="3" Padding="8,6" Background="Transparent" BorderThickness="0"
-                Focusable="False" Click="OnSettingsClick" AutomationProperties.Name="Settings">
-          <TextBlock Style="{StaticResource Glyph}" Text="&#xE713;" FontSize="14" />
-        </Button>
-      </Grid>
+          <Grid Grid.Column="1">
+            <TextBox x:Name="Search" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
+                     FontSize="16" BorderThickness="0" Background="Transparent" Padding="2,6"
+                     VerticalContentAlignment="Center"
+                     AutomationProperties.Name="{x:Static loc:Strings.SearchPlaceholder}"
+                     AutomationProperties.HelpText="{x:Static loc:Strings.SearchHelp}" />
+            <TextBlock Text="{x:Static loc:Strings.SearchPlaceholder}" FontSize="16" Margin="6,0,0,0" IsHitTestVisible="False"
+                       VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                       Visibility="{Binding Query, Converter={StaticResource CollapsedIf}}" />
+          </Grid>
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="10,0,6,0" VerticalAlignment="Center"
+                      AutomationProperties.Name="{Binding StatusText}">
+            <TextBlock x:Name="ResultsLive" Text="{Binding ResultsText}" FontSize="12" Margin="0,0,14,0" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" AutomationProperties.LiveSetting="Polite"
+                       Visibility="{Binding ResultsText, Converter={StaticResource VisibleIf}}" />
+            <TextBlock x:Name="StatusGlyph" Style="{StaticResource Glyph}" FontSize="12" Margin="0,0,6,0" Text="&#xE73E;"
+                       Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
+            <TextBlock Text="{Binding StatusText}" FontSize="12" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+          </StackPanel>
+          <ToggleButton x:Name="KeepOpenButton" Grid.Column="3" Style="{StaticResource ChromeToggle}"
+                        IsChecked="{Binding KeepOpen, Mode=TwoWay}"
+                        ToolTip="{x:Static loc:Strings.KeepOpenHelp}"
+                        AutomationProperties.Name="{x:Static loc:Strings.KeepOpen}"
+                        AutomationProperties.HelpText="{x:Static loc:Strings.KeepOpenHelp}" />
+          <Button x:Name="SettingsButton" Grid.Column="4" Style="{StaticResource ChromeButton}" Click="OnSettingsClick"
+                  AutomationProperties.Name="{x:Static loc:Strings.SettingsTitle}">
+            <TextBlock Style="{StaticResource Glyph}" Text="&#xE713;" FontSize="14" />
+          </Button>
+          <Button x:Name="CloseButton" Grid.Column="5" Style="{StaticResource ChromeButton}" Click="OnCloseClick"
+                  ToolTip="{x:Static loc:Strings.HintClose}" AutomationProperties.Name="{x:Static loc:Strings.HintClose}"
+                  Visibility="{Binding KeepOpen, Converter={StaticResource VisibleIf}}">
+            <TextBlock Style="{StaticResource Glyph}" Text="&#xE711;" FontSize="12" />
+          </Button>
+        </Grid>
+      </Border>
 
       <!-- Pause banner -->
       <Border Grid.Row="1" Margin="12,0,12,6" Padding="12,6" CornerRadius="6"
@@ -241,8 +295,9 @@
                  Visibility="{Binding InlineMessage, Converter={StaticResource VisibleIf}}" />
 
       <!-- Key hints -->
-      <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-              Background="{DynamicResource LayerFillColorDefaultBrush}" Padding="14,7">
+      <Border x:Name="HintBar" Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+              Background="{DynamicResource LayerFillColorDefaultBrush}" Padding="14,7"
+              Cursor="SizeAll" MouseLeftButtonDown="OnDragAreaMouseDown">
         <WrapPanel x:Name="Hints" />
       </Border>
     </Grid>

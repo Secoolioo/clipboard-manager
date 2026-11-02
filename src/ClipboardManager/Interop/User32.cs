@@ -5,6 +5,8 @@ namespace ClipboardManager.Interop;
 internal static partial class User32
 {
     public const int WM_NULL = 0x0000;
+    public const int WM_MOUSEACTIVATE = 0x0021;
+    public const int WM_POINTERACTIVATE = 0x024B;
     public const int WM_QUERYENDSESSION = 0x0011;
     public const int WM_ENDSESSION = 0x0016;
     public const int WM_SETTINGCHANGE = 0x001A;
@@ -44,6 +46,7 @@ internal static partial class User32
     public const uint WDA_MONITOR = 0x1;
     public const uint WDA_EXCLUDEFROMCAPTURE = 0x11;
 
+    public const uint MONITOR_DEFAULTTONULL = 0;
     public const uint MONITOR_DEFAULTTONEAREST = 2;
     public const uint MONITOR_DEFAULTTOPRIMARY = 1;
 
@@ -217,6 +220,13 @@ internal static partial class User32
     // Monitors / DPI
     [LibraryImport("user32.dll")]
     public static partial IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [LibraryImport("user32.dll")]
+    public static partial IntPtr MonitorFromRect(ref RECT lprc, uint dwFlags);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
     [return: MarshalAs(UnmanagedType.Bool)]

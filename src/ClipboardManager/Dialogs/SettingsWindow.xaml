@@ -97,6 +97,18 @@
         </StackPanel>
       </Border>
 
+      <!-- History window -->
+      <TextBlock Style="{StaticResource Section}" Text="{x:Static loc:Strings.SectionWindow}" />
+      <Border Style="{StaticResource Card}">
+        <StackPanel>
+          <CheckBox x:Name="KeepOpenBox" Style="{StaticResource Row}" Content="{x:Static loc:Strings.KeepPopupOpen}" Click="OnKeepOpenClick" />
+          <TextBlock Style="{StaticResource Note}" Text="{x:Static loc:Strings.KeepPopupOpenNote}" />
+          <TextBlock Style="{StaticResource Note}" Margin="0,4,0,10" Text="{x:Static loc:Strings.PopupPositionNote}" />
+          <Button x:Name="ResetPositionButton" Content="{x:Static loc:Strings.ResetPopupPosition}" HorizontalAlignment="Left" MinWidth="160"
+                  Click="OnResetPositionClick" />
+        </StackPanel>
+      </Border>
+
       <!-- Privacy -->
       <TextBlock Style="{StaticResource Section}" Text="{x:Static loc:Strings.SectionPrivacy}" />
       <Border Style="{StaticResource Card}">

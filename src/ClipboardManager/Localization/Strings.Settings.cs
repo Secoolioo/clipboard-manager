@@ -86,6 +86,20 @@ public static partial class Strings
 
     public static string ClearHistoryButton => T("Verlauf löschen…", "Clear history…");
 
+    public static string SectionWindow => T("Verlaufsfenster", "History window");
+
+    public static string KeepPopupOpen => T("Geöffnet lassen, wenn ich in eine andere App klicke", "Keep open when I click into another app");
+
+    public static string KeepPopupOpenNote => T(
+        "Das Fenster bleibt sichtbar und im Vordergrund. Klicken oder Eingabe kopiert und gibt den Fokus an die vorige App zurück – Strg+V fügt dort ein. Das Tastenkürzel holt es nach vorn, Esc oder ✕ schließt es. Auch mit dem Pin oben im Fenster umschaltbar.",
+        "The window stays visible and on top. Click or Enter copies and gives the focus back to the previous app – Ctrl+V pastes there. The shortcut brings it to the front, Esc or ✕ closes it. The pin at the top of the window toggles this too.");
+
+    public static string PopupPositionNote => T(
+        "Zum Verschieben das Fenster an der Suchzeile (neben dem Suchfeld) oder an der Hinweisleiste unten ziehen – es öffnet sich dann dort, auch nach einem Neustart. Ein Doppelklick dort setzt es zurück.",
+        "To move the window, drag its search row (around the search box) or the hint bar at the bottom – it then opens there, also after a restart. Double-click there to put it back.");
+
+    public static string ResetPopupPosition => T("Position zurücksetzen", "Reset position");
+
     public static string SectionPrivacy => T("Datenschutz", "Privacy");
 
     public static string SkipSecrets => T("Erkannte Zugangsdaten nicht speichern", "Don't save detected credentials");

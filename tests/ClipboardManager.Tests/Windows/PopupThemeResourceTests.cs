@@ -64,6 +64,14 @@ public sealed class PopupThemeResourceTests
             window.UpdateLayout();
             await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
 
+            // Kept open: the pin's own template in its checked state, and the close button.
+            model.KeepOpen = true;
+            window.UpdateLayout();
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.True(window.KeepOpenButton.IsChecked);
+            Assert.True(window.CloseButton.IsVisible);
+            model.KeepOpen = false;
+
             // Open/close spam: the other notice kinds, ItemsSource resets while shown and hidden.
             for (var i = 0; i < 6; i++)
             {

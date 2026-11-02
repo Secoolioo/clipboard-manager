@@ -121,4 +121,45 @@ public sealed class SettingsTests : IDisposable
         Assert.Equal(250, settings.MaxHistoryItems);
         Assert.False(settings.SkipImages);
     }
+
+    [Fact]
+    public void Settings_from_before_0_12_close_the_window_on_deactivation_and_use_the_default_spot()
+    {
+        File.WriteAllText(_dir.Paths.SettingsFile, """{ "schemaVersion": 1, "popupCompact": true }""");
+
+        var (settings, state) = Store().Load();
+
+        Assert.Equal(SettingsLoadState.Loaded, state);
+        Assert.True(settings.PopupCompact);
+        Assert.False(settings.KeepPopupOpen);
+        Assert.Null(settings.PopupLeft);
+        Assert.Null(settings.PopupTop);
+    }
+
+    [Fact]
+    public void Keep_open_and_the_dragged_spot_survive_a_restart()
+    {
+        // Negative coordinates are real: a monitor left of or above the primary one.
+        Assert.True(Store().Save(new AppSettings { KeepPopupOpen = true, PopupLeft = -1700, PopupTop = 240 }));
+
+        var settings = Store().Load().Settings;
+
+        Assert.True(settings.KeepPopupOpen);
+        Assert.Equal(-1700, settings.PopupLeft);
+        Assert.Equal(240, settings.PopupTop);
+    }
+
+    [Theory]
+    [InlineData(100, null)]
+    [InlineData(null, 100)]
+    [InlineData(-32000, -32000)]
+    [InlineData(40000, 100)]
+    [InlineData(100, int.MinValue)]
+    public void A_half_or_impossible_spot_falls_back_to_the_default(int? left, int? top)
+    {
+        var settings = new AppSettings { PopupLeft = left, PopupTop = top }.Normalize();
+
+        Assert.Null(settings.PopupLeft);
+        Assert.Null(settings.PopupTop);
+    }
 }

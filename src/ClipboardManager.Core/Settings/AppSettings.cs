@@ -58,12 +58,25 @@ public sealed record AppSettings
 
     public bool PinnedExpanded { get; init; }
 
+    /// <summary>The history window stays open (and on top) when another window is activated. Off: it closes, as before 0.12.</summary>
+    public bool KeepPopupOpen { get; init; }
+
+    /// <summary>Top-left of a history window the user dragged, in physical screen pixels; null: the default spot.</summary>
+    public int? PopupLeft { get; init; }
+
+    public int? PopupTop { get; init; }
+
     [JsonIgnore]
     public HistoryLimits Limits => HistoryLimits.For(MaxHistoryItems);
 
     /// <summary>Clamps and cleans values loaded from disk.</summary>
     public AppSettings Normalize()
     {
+        // Beyond any real desktop (-32000 is where Windows parks minimized windows): use the default spot.
+        // A range check, not Math.Abs: that throws for int.MinValue from a hand-edited file.
+        const int MaxScreenCoordinate = 32_000;
+        var hasPosition = PopupLeft is > -MaxScreenCoordinate and < MaxScreenCoordinate &&
+            PopupTop is > -MaxScreenCoordinate and < MaxScreenCoordinate;
         var hotkey = Hotkey is null || Hotkey.Validate() != HotkeyValidation.Valid ? HotkeyGesture.Default : Hotkey;
         var excluded = (ExcludedApps ?? [])
             .Where(static name => !string.IsNullOrWhiteSpace(name))
@@ -80,6 +93,8 @@ public sealed record AppSettings
             MaxHistoryItems = Math.Clamp(MaxHistoryItems, HistoryLimits.MinItems, HistoryLimits.MaxItemsUpperBound),
             Hotkey = hotkey,
             ExcludedApps = excluded,
+            PopupLeft = hasPosition ? PopupLeft : null,
+            PopupTop = hasPosition ? PopupTop : null,
         };
     }
 }
