@@ -372,6 +372,13 @@ internal sealed partial class SettingsWindow : Window
     private void OnResetPositionClick(object sender, RoutedEventArgs e)
     {
         _host.UpdateSettings(static s => s with { PopupLeft = null, PopupTop = null });
+
+        // A disabled button loses the keyboard focus to the page; keep it in this section instead.
+        if (ResetPositionButton.IsKeyboardFocusWithin)
+        {
+            KeepOpenBox.Focus();
+        }
+
         ResetPositionButton.IsEnabled = false;
     }
 

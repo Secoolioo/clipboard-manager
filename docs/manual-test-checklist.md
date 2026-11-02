@@ -45,7 +45,7 @@ Run before a release on the CI artifact. Use demo text, never real secrets.
 
 - [ ] Drag the search row (around the box, the status) and the hint bar → the window moves; the cursor shows the move arrows there, the text cursor over the search box and an arrow over the buttons; clicks in the box, on the buttons and on entries work as before.
 - [ ] Close and reopen, then exit and start the app → the window opens where it was dragged; Tab (compact) keeps its left edge.
-- [ ] Double-click the search row → back to the default spot; *Settings → History window → Reset position* does the same and is greyed out when nothing is saved.
+- [ ] Double-click the search row (around the box) or the hint bar → back to the default spot; *Settings → History window → Reset position* does the same and is greyed out when nothing is saved.
 - [ ] Drag the window to a second monitor with different scaling, reopen → sharp and correctly sized there; unplug that monitor (or change the layout) → the next open uses the default spot on the active monitor.
 - [ ] Pin off (default): clicking another window still closes the popup, focus stays in the clicked app.
 - [ ] Pin on: click into another app → the popup stays visible on top, a ✕ appears; click an entry → "Copied – Ctrl+V to paste", focus is back in that app and Ctrl+V pastes there; the window stays. Same with a tap on a touch screen or a pen.

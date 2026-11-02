@@ -95,8 +95,8 @@ public static partial class Strings
         "The window stays visible and on top. Click or Enter copies and gives the focus back to the previous app – Ctrl+V pastes there. The shortcut brings it to the front, Esc or ✕ closes it. The pin at the top of the window toggles this too.");
 
     public static string PopupPositionNote => T(
-        "Zum Verschieben das Fenster an der Suchzeile oder an der Hinweisleiste unten ziehen – es öffnet sich dann dort, auch nach einem Neustart. Ein Doppelklick dort setzt es zurück.",
-        "To move the window, drag its search row or the hint bar at the bottom – it then opens there, also after a restart. Double-click there to put it back.");
+        "Zum Verschieben das Fenster an der Suchzeile (neben dem Suchfeld) oder an der Hinweisleiste unten ziehen – es öffnet sich dann dort, auch nach einem Neustart. Ein Doppelklick dort setzt es zurück.",
+        "To move the window, drag its search row (around the search box) or the hint bar at the bottom – it then opens there, also after a restart. Double-click there to put it back.");
 
     public static string ResetPopupPosition => T("Position zurücksetzen", "Reset position");
 

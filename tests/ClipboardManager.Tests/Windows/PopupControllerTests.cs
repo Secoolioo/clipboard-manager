@@ -70,7 +70,9 @@ public sealed class PopupControllerTests
         // The pin in the window: saved, also for the next start.
         setup.Model.KeepOpen = false;
         Assert.False(setup.Settings.Current.KeepPopupOpen);
-        Assert.False(setup.Store.Load().Settings.KeepPopupOpen);
+        var (loaded, state) = setup.Store.Load();
+        Assert.Equal(SettingsLoadState.Loaded, state);
+        Assert.False(loaded.KeepPopupOpen);
 
         // The checkbox in the settings: the pin follows.
         setup.Settings.Update(static s => s with { KeepPopupOpen = true });
@@ -92,7 +94,8 @@ public sealed class PopupControllerTests
 
         Assert.Equal(123, setup.Settings.Current.PopupLeft);
         Assert.Equal(77, setup.Settings.Current.PopupTop);
-        var saved = setup.Store.Load().Settings;
+        var (saved, state) = setup.Store.Load();
+        Assert.Equal(SettingsLoadState.Loaded, state);
         Assert.Equal((123, 77), (saved.PopupLeft, saved.PopupTop));
 
         setup.Controller.ResetPosition();

@@ -51,6 +51,7 @@ internal sealed class PopupController : IPopupActions
     private bool _closing;
     private bool _failed;
     private bool _stale;
+    private long? _keptOpenCopy;
 
     public PopupController(
         PopupWindow window,
@@ -319,7 +320,8 @@ internal sealed class PopupController : IPopupActions
         }
         catch (Exception ex)
         {
-            Fail(ex);
+            // Like a failed Show: the replacement window opens in its place.
+            Fail(ex, source);
         }
     }
 
@@ -421,7 +423,7 @@ internal sealed class PopupController : IPopupActions
         {
             // Already in the clipboard: rewriting would only replace the source app's richer formats with ours.
             // (Asked now, not from the row: in a window that stays open, the clipboard changes meanwhile.)
-            CopyDone();
+            CopyDone(row.Entry.Id);
             return;
         }
 
@@ -474,7 +476,7 @@ internal sealed class PopupController : IPopupActions
                     _viewModel.MarkCurrent(row.Entry.Id);
                 }
 
-                CopyDone();
+                CopyDone(row.Entry.Id);
             }
         }
         finally
@@ -484,7 +486,7 @@ internal sealed class PopupController : IPopupActions
     }
 
     /// <summary>The entry is in the clipboard: close as always, or, kept open, say so and give the focus back.</summary>
-    private void CopyDone()
+    private void CopyDone(long entryId)
     {
         if (!_viewModel.KeepOpen)
         {
@@ -492,8 +494,17 @@ internal sealed class PopupController : IPopupActions
             return;
         }
 
+        // Cleared first, so a second copy with the same text is announced again.
+        _keptOpenCopy = entryId;
+        _viewModel.InlineMessage = null;
         _viewModel.InlineMessage = Strings.CopiedKeptOpen;
-        ReturnFocus();
+
+        // A slow copy (a large picture, a locked clipboard): the user may have gone on to another app
+        // meanwhile, and the focus must not be pulled away from there.
+        if (_window.IsActive)
+        {
+            ReturnFocus();
+        }
     }
 
     public async Task TogglePinAsync(EntryRow row)
@@ -647,7 +658,14 @@ internal sealed class PopupController : IPopupActions
     {
         _stale = false;
         var sequence = User32.GetClipboardSequenceNumber();
-        _viewModel.RefreshSnapshot(_index.Snapshot(), _tracker.CurrentEntry(sequence), _tracker.CurrentSkip(sequence), _index.IsLoaded);
+        var current = _tracker.CurrentEntry(sequence);
+        if (_viewModel.InlineMessage == Strings.CopiedKeptOpen && current != _keptOpenCopy)
+        {
+            // Something else was copied since: Ctrl+V would no longer paste what the message refers to.
+            _viewModel.InlineMessage = null;
+        }
+
+        _viewModel.RefreshSnapshot(_index.Snapshot(), current, _tracker.CurrentSkip(sequence), _index.IsLoaded);
         _snapshotVersion = _index.Version;
     }
 
