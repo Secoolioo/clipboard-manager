@@ -110,6 +110,10 @@ Follows your Windows language, switchable in Settings.
 **🔄 One-click updates**<br>
 *Check for updates* installs a new version in place – verified, settings and history kept.
 
+**📍 Where you want it**<br>
+Drag the window anywhere – it opens there next time. The pin keeps it open beside your work:
+click an entry, <kbd>Ctrl</kbd>+<kbd>V</kbd>, repeat.
+
 </td>
 </tr>
 </table>
@@ -164,14 +168,20 @@ releases page instead – it never asks for elevation.
 
 | Key | Action |
 |---|---|
-| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> | Open / close the history (changeable) |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> | Open / close the history (changeable); brings a window kept open back to the front |
 | *type* | Filter as you type (all words must match) |
 | <kbd>↑</kbd> <kbd>↓</kbd> <kbd>PgUp</kbd> <kbd>PgDn</kbd> | Move the selection |
-| <kbd>Enter</kbd> or click | Copy the entry, close, return to the previous app |
+| <kbd>Enter</kbd> or click | Copy the entry, close, return to the previous app (kept open: the window stays) |
 | <kbd>Ctrl</kbd>+<kbd>P</kbd> | Pin / unpin |
 | <kbd>Shift</kbd>+<kbd>Del</kbd> | Delete the entry (<kbd>Ctrl</kbd>+<kbd>Z</kbd> brings it back) |
 | <kbd>Tab</kbd> | Show / hide the preview pane (text or picture) |
 | <kbd>Esc</kbd> | Close |
+
+With the mouse: drag the search row (around the box) or the hint bar to move the window – it
+opens there from now on, also after a restart; double-click there to put it back. The pin next to
+the gear keeps the window open when you click into another app: a copy then gives the focus back
+to that app, so <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes there. The window stays until <kbd>Esc</kbd>
+or ✕ closes it; the shortcut brings it back to the front.
 
 The newest entry is usually what is already in your clipboard, so the window pre-selects the one
 *before* it: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>, <kbd>Enter</kbd>, <kbd>Ctrl</kbd>+<kbd>V</kbd>
@@ -233,7 +243,7 @@ of something sensitive stays until you delete it (or turn off *save images*). De
 
 Start with Windows (with a shortcut to the Windows startup-apps page) · Start menu entry · record on/off · language · shortcut recorder (rejects
 combinations that would break copy/paste) · maximum entries (25 – 5,000) · save images · memory-only history ·
-clear history · detected-credential filter · screen-capture hiding · excluded apps (with "last
+clear history · keep the window open · reset its position · detected-credential filter · screen-capture hiding · excluded apps (with "last
 ignored" status) · theme · check for updates · open data folder · licenses · remove everything.
 
 **Start with Windows** is on after the first start from a permanent folder (Downloads and Desktop

@@ -41,6 +41,19 @@ Run before a release on the CI artifact. Use demo text, never real secrets.
 - [ ] Alt+F4 in the popup → the next hotkey still works.
 - [ ] Teams/Zoom screen share → the popup is not visible to others.
 
+## Moving and keeping the window open
+
+- [ ] Drag the search row (around the box, the status) and the hint bar → the window moves; the cursor shows the move arrows there, the text cursor over the search box and an arrow over the buttons; clicks in the box, on the buttons and on entries work as before.
+- [ ] Close and reopen, then exit and start the app → the window opens where it was dragged; Tab (compact) keeps its left edge.
+- [ ] Double-click the search row (around the box) or the hint bar → back to the default spot; *Settings → History window → Reset position* does the same and is greyed out when nothing is saved.
+- [ ] Drag the window to a second monitor with different scaling, reopen → sharp and correctly sized there; unplug that monitor (or change the layout) → the next open uses the default spot on the active monitor.
+- [ ] Pin off (default): clicking another window still closes the popup, focus stays in the clicked app.
+- [ ] Pin on: click into another app → the popup stays visible on top, a ✕ appears; click an entry → "Copied – Ctrl+V to paste", focus is back in that app and Ctrl+V pastes there; the window stays. Same with a tap on a touch screen or a pen.
+- [ ] Pin on: copy text in another app while the mouse is not over the popup → it appears at the top; with the mouse over the popup or while typing a search, the list does not move.
+- [ ] Pin on: the hotkey brings the popup to the front with its search and selection kept; pressed again (popup active) it closes; Esc and ✕ close and return focus; a left click on the tray icon closes it.
+- [ ] The pin and *Settings → History window → Keep open…* stay in sync; turning it off in Settings while the popup waits in the background closes it.
+- [ ] Narrator reads "Keep open" with its state and "Close"; High Contrast shows the pin and its checked state.
+
 ## Shell integration
 
 - [ ] Hotkey taken by another app → fallback Win+Alt+V announced, or "no hotkey" shown everywhere.
