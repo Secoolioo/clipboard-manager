@@ -68,6 +68,12 @@ public static partial class Strings
 
     public static string HintClose => T("Schließen", "Close");
 
+    public static string KeepOpen => T("Geöffnet lassen", "Keep open");
+
+    public static string KeepOpenHelp => T("Geöffnet lassen, auch wenn du in eine andere App klickst", "Keep open, even when you click into another app");
+
+    public static string CopiedKeptOpen => T("Kopiert – Strg+V fügt ein", "Copied – Ctrl+V to paste");
+
     public static string Deleted => T("Gelöscht – Strg+Z stellt wieder her", "Deleted – Ctrl+Z to undo");
 
     public static string CopyFailed => T("Zwischenablage gerade gesperrt – bitte erneut versuchen.", "The clipboard is locked right now – please try again.");

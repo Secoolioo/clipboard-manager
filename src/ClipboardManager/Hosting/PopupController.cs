@@ -7,6 +7,7 @@ using ClipboardManager.Core.Capture;
 using ClipboardManager.Core.Diagnostics;
 using ClipboardManager.Core.History;
 using ClipboardManager.Core.Monitoring;
+using ClipboardManager.Core.Settings;
 using ClipboardManager.Interop;
 using ClipboardManager.Localization;
 using ClipboardManager.Popup;
@@ -49,6 +50,7 @@ internal sealed class PopupController : IPopupActions
     private bool _busy;
     private bool _closing;
     private bool _failed;
+    private bool _stale;
 
     public PopupController(
         PopupWindow window,
@@ -71,14 +73,14 @@ internal sealed class PopupController : IPopupActions
         _log = log;
         _window.Actions = this;
         _viewModel.ImageLoader = LoadPreviewImageAsync;
+        _viewModel.KeepOpen = settings.Current.KeepPopupOpen;
         _index.Changed += OnIndexChanged;
-        _viewModel.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(PopupViewModel.IsCompact) && IsOpen)
-            {
-                Place(_window.Handle);
-            }
-        };
+        _settings.Changed += OnSettingsChanged;
+        _viewModel.PropertyChanged += OnViewModelChanged;
+
+        // A kept-open window catches up on new copies once the user is no longer in it or pointing at it.
+        _window.Deactivated += (_, _) => RefreshIfIdle();
+        _window.MouseLeave += (_, _) => RefreshIfIdle();
     }
 
     public event EventHandler? SettingsRequested;
@@ -97,6 +99,9 @@ internal sealed class PopupController : IPopupActions
 
     /// <summary>The window failed and was taken out of service; the controller replaces it.</summary>
     public bool HasFailed => _failed;
+
+    /// <summary>The window stays open when another window is activated (the pin in its search row).</summary>
+    public bool KeepsOpen => _viewModel.KeepOpen;
 
     /// <summary>Hide-then-click on the tray icon must not reopen immediately.</summary>
     public bool RecentlyHidden => Environment.TickCount64 - _hiddenAt < 300;
@@ -208,7 +213,12 @@ internal sealed class PopupController : IPopupActions
 
     public void Toggle(PopupSource source)
     {
-        if (IsOpen)
+        if (IsOpen && _viewModel.KeepOpen && !_window.IsActive)
+        {
+            // Kept open behind another window: the hotkey brings it back; pressed again, it closes.
+            BringToFront(source);
+        }
+        else if (IsOpen)
         {
             Close(restoreFocus: true);
         }
@@ -224,6 +234,13 @@ internal sealed class PopupController : IPopupActions
         if (_failed)
         {
             // Being replaced right now (see Failed).
+            return;
+        }
+
+        if (IsOpen && _viewModel.KeepOpen)
+        {
+            // Opening a window that is kept open is bringing it to the front, never a new session.
+            BringToFront(source);
             return;
         }
 
@@ -276,7 +293,88 @@ internal sealed class PopupController : IPopupActions
     public void Detach()
     {
         _index.Changed -= OnIndexChanged;
+        _settings.Changed -= OnSettingsChanged;
+        _viewModel.PropertyChanged -= OnViewModelChanged;
         _window.Actions = null;
+    }
+
+    /// <summary>
+    /// A kept-open window that lost the focus comes back as it was (search, selection), with the
+    /// copies made meanwhile. After the next copy the focus goes back to the app the hotkey came from.
+    /// </summary>
+    private void BringToFront(PopupSource source)
+    {
+        var foreground = User32.GetForegroundWindow();
+        if (source == PopupSource.Hotkey && IsRestorable(foreground))
+        {
+            _previousForeground = foreground;
+        }
+
+        StatusRequested?.Invoke(this, EventArgs.Empty);
+        try
+        {
+            RefreshKeptOpen();
+            _window.Activate();
+            User32.SetForegroundWindow(_window.Handle);
+            _window.FocusSearchBox();
+        }
+        catch (Exception ex)
+        {
+            Fail(ex);
+        }
+    }
+
+    /// <summary>A click into the kept-open window while another app is active: that app gets the focus back after a copy.</summary>
+    public void ActivatingByClick()
+    {
+        var foreground = User32.GetForegroundWindow();
+        if (IsRestorable(foreground))
+        {
+            _previousForeground = foreground;
+        }
+    }
+
+    /// <summary>After a copy in a kept-open window: back to the app the user came from, so Ctrl+V pastes there.</summary>
+    private void ReturnFocus()
+    {
+        if (_previousForeground != IntPtr.Zero && User32.IsWindow(_previousForeground))
+        {
+            User32.SetForegroundWindow(_previousForeground);
+        }
+    }
+
+    /// <summary>The user dragged the window: its top-left (in pixels) is where it opens next time, also after a restart.</summary>
+    public void WindowMoved()
+    {
+        if (!User32.GetWindowRect(_window.Handle, out var rect))
+        {
+            return;
+        }
+
+        var (left, top) = (rect.Left, rect.Top);
+        _settings.Update(s => s with { PopupLeft = left, PopupTop = top });
+    }
+
+    /// <summary>Back to the default spot (double-click on the drag area, or the button in the settings).</summary>
+    public void ResetPosition()
+    {
+        if (_settings.Current.PopupLeft is null && _settings.Current.PopupTop is null)
+        {
+            Reposition();
+            return;
+        }
+
+        // OnSettingsChanged moves an open window.
+        _settings.Update(static s => s with { PopupLeft = null, PopupTop = null });
+    }
+
+    /// <summary>Text size or displays changed: an open window gets its new size, and stays on a screen.</summary>
+    public void Reposition()
+    {
+        if (IsOpen)
+        {
+            Place(_window.Handle);
+        }
     }
 
     public void Close(bool restoreFocus)
@@ -322,10 +420,11 @@ internal sealed class PopupController : IPopupActions
             return;
         }
 
-        if (row.IsCurrent)
+        if (_tracker.CurrentEntry(User32.GetClipboardSequenceNumber()) == row.Entry.Id)
         {
             // Already in the clipboard: rewriting would only replace the source app's richer formats with ours.
-            Close(restoreFocus: true);
+            // (Asked now, not from the row: in a window that stays open, the clipboard changes meanwhile.)
+            CopyDone();
             return;
         }
 
@@ -373,13 +472,31 @@ internal sealed class PopupController : IPopupActions
             // Only close the session this copy belongs to (the user may have closed and reopened meanwhile).
             if (session == _session)
             {
-                Close(restoreFocus: true);
+                if (_viewModel.KeepOpen)
+                {
+                    _viewModel.MarkCurrent(row.Entry.Id);
+                }
+
+                CopyDone();
             }
         }
         finally
         {
             _busy = false;
         }
+    }
+
+    /// <summary>The entry is in the clipboard: close as always, or, kept open, say so and give the focus back.</summary>
+    private void CopyDone()
+    {
+        if (!_viewModel.KeepOpen)
+        {
+            Close(restoreFocus: true);
+            return;
+        }
+
+        _viewModel.InlineMessage = Strings.CopiedKeptOpen;
+        ReturnFocus();
     }
 
     public async Task TogglePinAsync(EntryRow row)
@@ -474,6 +591,13 @@ internal sealed class PopupController : IPopupActions
     /// </summary>
     private void OnIndexChanged(object? sender, EventArgs e)
     {
+        if (IsOpen && _viewModel.KeepOpen)
+        {
+            _stale = true;
+            RefreshIfIdle();
+            return;
+        }
+
         if (!IsOpen || _refreshed || _window.HasUserInput || _index.Version == _snapshotVersion)
         {
             return;
@@ -492,6 +616,68 @@ internal sealed class PopupController : IPopupActions
             {
                 Fail(ex);
             }
+        }
+    }
+
+    /// <summary>
+    /// A kept-open window shows new copies, but never while the user is in it or pointing at it: the
+    /// list must not shift under the cursor. It catches up on deactivation or when the mouse leaves.
+    /// </summary>
+    private void RefreshIfIdle()
+    {
+        if (!_stale || _closing || !IsOpen || !_viewModel.KeepOpen || _window.IsActive || _window.IsMouseOver)
+        {
+            return;
+        }
+
+        try
+        {
+            RefreshKeptOpen();
+        }
+        catch (Exception ex)
+        {
+            Fail(ex);
+        }
+    }
+
+    private void RefreshKeptOpen()
+    {
+        _stale = false;
+        var sequence = User32.GetClipboardSequenceNumber();
+        _viewModel.RefreshSnapshot(_index.Snapshot(), _tracker.CurrentEntry(sequence), _tracker.CurrentSkip(sequence), _index.IsLoaded);
+        _snapshotVersion = _index.Version;
+    }
+
+    private void OnViewModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(PopupViewModel.IsCompact) when IsOpen:
+                Place(_window.Handle);
+                break;
+            case nameof(PopupViewModel.KeepOpen):
+                var keepOpen = _viewModel.KeepOpen;
+                if (_settings.Current.KeepPopupOpen != keepOpen)
+                {
+                    _settings.Update(s => s with { KeepPopupOpen = keepOpen });
+                }
+
+                if (!keepOpen && IsOpen && !_window.IsActive)
+                {
+                    // Turned off (in the settings) while the window waited in the background: close it, as a normal one would have.
+                    Close(restoreFocus: false);
+                }
+
+                break;
+        }
+    }
+
+    private void OnSettingsChanged(AppSettings previous, AppSettings current)
+    {
+        _viewModel.KeepOpen = current.KeepPopupOpen;
+        if (IsOpen && current.PopupLeft is null && previous.PopupLeft is not null)
+        {
+            Place(_window.Handle);
         }
     }
 
@@ -518,10 +704,30 @@ internal sealed class PopupController : IPopupActions
         }
     }
 
-    /// <summary>Fixed, predictable spot: centred, upper third of the monitor with the foreground window. Set in pixels before Show.</summary>
+    /// <summary>
+    /// Where the user dragged it last, if that is still on a screen (pulled inside its work area);
+    /// otherwise the fixed, predictable default: centred, upper third of the monitor with the
+    /// foreground window. Set in pixels before Show.
+    /// </summary>
     private void Place(IntPtr foreground)
     {
-        var monitor = User32.MonitorFromWindow(foreground == IntPtr.Zero ? _window.Handle : foreground, User32.MONITOR_DEFAULTTOPRIMARY);
+        var logical = _window.LogicalSize;
+        var settings = _settings.Current;
+        var monitor = IntPtr.Zero;
+        if (settings.PopupLeft is { } savedLeft && settings.PopupTop is { } savedTop)
+        {
+            var probe = PopupPlacement.Probe(savedLeft, savedTop, logical, _window.Scale);
+            var rect = new User32.RECT { Left = probe.Left, Top = probe.Top, Right = probe.Right, Bottom = probe.Bottom };
+            monitor = User32.MonitorFromRect(ref rect, User32.MONITOR_DEFAULTTONULL);
+        }
+
+        var remembered = monitor != IntPtr.Zero;
+        if (!remembered)
+        {
+            // Never dragged, or that screen is gone.
+            monitor = User32.MonitorFromWindow(foreground == IntPtr.Zero ? _window.Handle : foreground, User32.MONITOR_DEFAULTTOPRIMARY);
+        }
+
         var info = new User32.MONITORINFO { cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<User32.MONITORINFO>() };
         if (!User32.GetMonitorInfo(monitor, ref info))
         {
@@ -529,14 +735,11 @@ internal sealed class PopupController : IPopupActions
         }
 
         var dpi = Shcore.GetDpiForMonitor(monitor, Shcore.MDT_EFFECTIVE_DPI, out var dpiX, out _) == 0 ? dpiX : 96u;
-        var scale = dpi / 96.0 * _window.Scale;
-        var logical = _window.LogicalSize;
-        var work = info.rcWork;
-        var width = Math.Min((int)Math.Round(logical.Width * scale), work.Width - 16);
-        var height = Math.Min((int)Math.Round(logical.Height * scale), work.Height - 16);
-        var x = work.Left + ((work.Width - width) / 2);
-        var y = work.Top + Math.Max(8, (work.Height - height) / 3);
-        User32.SetWindowPos(_window.Handle, User32.HWND_TOPMOST, x, y, width, height, User32.SWP_NOACTIVATE);
+        var work = new PixelRect(info.rcWork.Left, info.rcWork.Top, info.rcWork.Width, info.rcWork.Height);
+        var place = remembered
+            ? PopupPlacement.Remembered(settings.PopupLeft!.Value, settings.PopupTop!.Value, work, dpi, logical, _window.Scale)
+            : PopupPlacement.Default(work, dpi, logical, _window.Scale);
+        User32.SetWindowPos(_window.Handle, User32.HWND_TOPMOST, place.Left, place.Top, place.Width, place.Height, User32.SWP_NOACTIVATE);
     }
 
     private bool IsRestorable(IntPtr hwnd)

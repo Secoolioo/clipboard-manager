@@ -294,6 +294,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
         _environmentPrewarm ??= new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.ApplicationIdle, (sender, _) =>
         {
             ((DispatcherTimer)sender!).Stop();
+            _popup.Reposition();
             SchedulePrewarm();
         }, _dispatcher);
         _environmentPrewarm.Stop();
@@ -475,7 +476,15 @@ internal sealed class AppController : ISettingsHost, IDisposable
         {
             case Shell32.NIN_SELECT or Shell32.NIN_KEYSELECT:
                 _warmup.UserEngaged();
-                if (!_popup.IsOpen && !_popup.RecentlyHidden)
+                if (_popup.IsOpen)
+                {
+                    // A normal popup already closed when the click took the focus; one kept open closes now.
+                    if (_popup.KeepsOpen)
+                    {
+                        _popup.Close(restoreFocus: false);
+                    }
+                }
+                else if (!_popup.RecentlyHidden)
                 {
                     OpenPopup(PopupSource.Tray);
                 }
@@ -543,6 +552,7 @@ internal sealed class AppController : ISettingsHost, IDisposable
         }
 
         _popupWindow.ApplyScale(ThemeHelper.TextScaleFactor());
+        _popup.Reposition();
     }
 
     // ---- settings --------------------------------------------------------------------------

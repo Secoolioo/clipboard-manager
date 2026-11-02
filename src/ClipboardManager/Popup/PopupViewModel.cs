@@ -28,6 +28,7 @@ public sealed class PopupViewModel : ObservableObject
     private bool _isLoaded = true;
     private bool _pinnedExpanded;
     private bool _isCompact;
+    private bool _keepOpen;
     private string _previewText = string.Empty;
     private string _previewMeta = string.Empty;
     private bool _previewMonospace;
@@ -96,6 +97,16 @@ public sealed class PopupViewModel : ObservableObject
     }
 
     public bool PinnedExpanded => _pinnedExpanded;
+
+    /// <summary>
+    /// The window stays open (and on top) when another window is activated; the pin in the search
+    /// row. A setting, not session state: <see cref="Reset"/> keeps it.
+    /// </summary>
+    public bool KeepOpen
+    {
+        get => _keepOpen;
+        set => Set(ref _keepOpen, value);
+    }
 
     public string PreviewText
     {
@@ -209,6 +220,58 @@ public sealed class PopupViewModel : ObservableObject
 
         // A warm-up that a real open took over keeps its selection, so the picture it skipped loads now.
         RequestMissingImage();
+    }
+
+    /// <summary>
+    /// New copies in a window that stays open. Keeps the search, the selected entry (by id), Undo and
+    /// the inline message; called only while the user is not in the window.
+    /// </summary>
+    public void RefreshSnapshot(HistorySnapshot snapshot, long? currentEntryId, SkipReason skip, bool isLoaded)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var keep = (_selected as EntryRow)?.Entry.Id;
+        var keepMore = _selected is MoreRow;
+        _source = snapshot;
+        _currentEntryId = currentEntryId;
+        _skip = skip;
+        _isLoaded = isLoaded;
+        Rebuild(selectDefault: false);
+        PruneRows();
+
+        var selected = keep is { } id
+            ? _rows.OfType<EntryRow>().FirstOrDefault(r => r.Entry.Id == id)
+            : keepMore ? _rows.OfType<MoreRow>().FirstOrDefault() : null;
+        Selected = selected ?? DefaultSelection([.. _rows], HistorySearch.ParseTerms(_query).Length > 0);
+    }
+
+    /// <summary>The entry a kept-open window just copied gets the "current" badge at once.</summary>
+    public void MarkCurrent(long entryId)
+    {
+        _currentEntryId = entryId;
+        foreach (var row in _entryRows.Values)
+        {
+            row.IsCurrent = row.Entry.Id == entryId;
+        }
+    }
+
+    /// <summary>
+    /// A window that stays open for hours must not keep rows of entries that left the history, or
+    /// headers and notices no longer shown (their counts change). Rows of entries hidden by the
+    /// search stay, so typing reuses them.
+    /// </summary>
+    private void PruneRows()
+    {
+        var ids = _source.Pinned.Concat(_source.History).Select(static e => e.Id).ToHashSet();
+        foreach (var id in _entryRows.Keys.Where(id => !ids.Contains(id)).ToList())
+        {
+            _entryRows.Remove(id);
+        }
+
+        var shown = new HashSet<PopupRow>(_rows, ReferenceEqualityComparer.Instance);
+        foreach (var key in _fixedRows.Where(pair => !shown.Contains(pair.Value)).Select(static pair => pair.Key).ToList())
+        {
+            _fixedRows.Remove(key);
+        }
     }
 
     public void SetStatus(string statusText, bool paused, DateTimeOffset? pausedUntil)

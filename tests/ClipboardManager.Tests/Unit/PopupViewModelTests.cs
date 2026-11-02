@@ -265,6 +265,76 @@ public sealed class PopupViewModelTests
         Assert.Equal(1, loads);
     }
 
+    [Fact]
+    public void A_window_kept_open_shows_new_copies_without_losing_search_selection_or_undo()
+    {
+        // The index hands out the same entry objects while an entry is unchanged.
+        var (status, log, docker) = (Entry(3, "git status"), Entry(2, "git log"), Entry(1, "docker ps"));
+        var model = Model(new HistorySnapshot([], [status, log, docker]), current: 3);
+        model.Query = "git";
+        model.Selected = model.Rows.OfType<EntryRow>().Single(r => r.Entry.Id == 2);
+        var kept = model.SelectedEntry;
+        var deleted = new DeletedEntry(docker, "docker ps");
+        model.ApplyDeletion(deleted);
+        model.Selected = kept;
+
+        // Copied meanwhile in another app: "git push" is new and current.
+        model.RefreshSnapshot(new HistorySnapshot([], [Entry(4, "git push"), status, log]), 4, SkipReason.None, isLoaded: true);
+
+        Assert.Equal("git", model.Query);
+        Assert.Equal([4, 3, 2], model.Rows.OfType<EntryRow>().Select(r => r.Entry.Id));
+        Assert.Same(kept, model.SelectedEntry);
+        Assert.True(model.Rows.OfType<EntryRow>().Single(r => r.Entry.Id == 4).IsCurrent);
+        Assert.False(model.Rows.OfType<EntryRow>().Single(r => r.Entry.Id == 3).IsCurrent);
+        Assert.Same(deleted, model.TakeUndo());
+    }
+
+    [Fact]
+    public void A_refresh_without_the_selected_entry_falls_back_to_the_default_selection()
+    {
+        var model = Model(new HistorySnapshot([], [Entry(2, "previous"), Entry(1, "older")]), current: 2);
+        model.Selected = model.Rows.OfType<EntryRow>().Single(r => r.Entry.Id == 1);
+
+        // Entry 1 left the history (retention).
+        model.RefreshSnapshot(new HistorySnapshot([], [Entry(3, "newest"), Entry(2, "previous")]), 3, SkipReason.None, isLoaded: true);
+
+        Assert.Equal(2, model.SelectedEntry!.Entry.Id);
+    }
+
+    [Fact]
+    public void A_refresh_reuses_the_rows_of_unchanged_entries()
+    {
+        var older = Entry(1, "older");
+        var model = Model(new HistorySnapshot([], [older]));
+        var row = model.Rows.OfType<EntryRow>().Single();
+
+        model.RefreshSnapshot(new HistorySnapshot([], [Entry(2, "newest"), older]), null, SkipReason.None, isLoaded: true);
+
+        Assert.Same(row, model.Rows.OfType<EntryRow>().Single(r => r.Entry.Id == 1));
+    }
+
+    [Fact]
+    public void A_copy_in_a_window_kept_open_moves_the_current_badge_at_once()
+    {
+        var model = Model(new HistorySnapshot([], [Entry(2, "previous"), Entry(1, "older")]), current: 2);
+
+        model.MarkCurrent(1);
+
+        Assert.True(model.Rows.OfType<EntryRow>().Single(r => r.Entry.Id == 1).IsCurrent);
+        Assert.False(model.Rows.OfType<EntryRow>().Single(r => r.Entry.Id == 2).IsCurrent);
+    }
+
+    [Fact]
+    public void Keep_open_is_a_setting_and_survives_the_reset_on_close()
+    {
+        var model = Model(new HistorySnapshot([], [Entry(1, "a")]));
+        model.KeepOpen = true;
+
+        model.Reset();
+
+        Assert.True(model.KeepOpen);
+    }
+
     private static async Task Settle() =>
         await System.Windows.Threading.Dispatcher.CurrentDispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 }

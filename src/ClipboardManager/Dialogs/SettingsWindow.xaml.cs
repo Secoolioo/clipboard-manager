@@ -91,6 +91,8 @@ internal sealed partial class SettingsWindow : Window
         MaxEntriesBox.SelectedIndex = Math.Max(0, Array.IndexOf(AppSettings.HistorySizePresets, NearestPreset(settings.MaxHistoryItems)));
         ImagesBox.IsChecked = !settings.SkipImages;
         MemoryOnlyBox.IsChecked = settings.MemoryOnly;
+        KeepOpenBox.IsChecked = settings.KeepPopupOpen;
+        ResetPositionButton.IsEnabled = settings.PopupLeft is not null;
         SecretsBox.IsChecked = settings.SkipDetectedSecrets;
         CaptureBox.IsChecked = settings.HideFromScreenCapture;
         if (!_recordingHotkey)
@@ -357,6 +359,20 @@ internal sealed partial class SettingsWindow : Window
     {
         var on = ImagesBox.IsChecked == true;
         _host.UpdateSettings(s => s with { SkipImages = !on });
+    }
+
+    // ---- History window --------------------------------------------------------------------
+
+    private void OnKeepOpenClick(object sender, RoutedEventArgs e)
+    {
+        var on = KeepOpenBox.IsChecked == true;
+        _host.UpdateSettings(s => s with { KeepPopupOpen = on });
+    }
+
+    private void OnResetPositionClick(object sender, RoutedEventArgs e)
+    {
+        _host.UpdateSettings(static s => s with { PopupLeft = null, PopupTop = null });
+        ResetPositionButton.IsEnabled = false;
     }
 
     // ---- Privacy ---------------------------------------------------------------------------

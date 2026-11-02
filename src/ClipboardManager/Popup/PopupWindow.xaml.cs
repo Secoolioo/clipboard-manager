@@ -26,6 +26,15 @@ internal interface IPopupActions
     void OpenSettings();
 
     void Resume();
+
+    /// <summary>The user dragged the window to a new spot.</summary>
+    void WindowMoved();
+
+    /// <summary>Back to the default spot (double-click on a drag area).</summary>
+    void ResetPosition();
+
+    /// <summary>A click is about to activate the kept-open window while another app is in the foreground.</summary>
+    void ActivatingByClick();
 }
 
 /// <summary>
@@ -70,7 +79,8 @@ internal sealed partial class PopupWindow : Window
         PreviewTextInput += OnPreviewTextInput;
         Deactivated += (_, _) =>
         {
-            if (IsVisible && !IsPrewarming)
+            // Kept open, it stays visible (and on top) next to the app the user went to.
+            if (IsVisible && !IsPrewarming && !ViewModel.KeepOpen)
             {
                 Actions?.Close(restoreFocus: false);
             }
@@ -132,6 +142,14 @@ internal sealed partial class PopupWindow : Window
         }
     }
 
+    /// <summary>Back in a kept-open window (hotkey): typing goes to the search box again.</summary>
+    public void FocusSearchBox()
+    {
+        Search.Focus();
+        Keyboard.Focus(Search);
+        Search.CaretIndex = Search.Text.Length;
+    }
+
     public void AllowCloseForShutdown() => _allowClose = true;
 
     protected override void OnClosing(CancelEventArgs e)
@@ -152,6 +170,52 @@ internal sealed partial class PopupWindow : Window
         var hwnd = Handle;
         Dwm.Set(hwnd, Dwm.DWMWA_TRANSITIONS_FORCEDISABLED, 1);
         Dwm.Set(hwnd, Dwm.DWMWA_WINDOW_CORNER_PREFERENCE, Dwm.DWMWCP_ROUND);
+        HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
+    }
+
+    /// <summary>
+    /// A click (mouse, touch or pen) into the kept-open window while another app is active: the
+    /// foreground is still that app here, so the controller can give it the focus back after a copy.
+    /// </summary>
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if ((msg is User32.WM_MOUSEACTIVATE or User32.WM_POINTERACTIVATE) && ViewModel.KeepOpen && !IsActive)
+        {
+            Actions?.ActivatingByClick();
+        }
+
+        return IntPtr.Zero;
+    }
+
+    /// <summary>
+    /// Dragging the search row (around the box) or the hint bar moves the window; the spot is kept
+    /// for the next open. A double-click puts it back in the default spot.
+    /// </summary>
+    private void OnDragAreaMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        HasUserInput = true;
+        e.Handled = true;
+        if (e.ClickCount == 2)
+        {
+            Actions?.ResetPosition();
+            return;
+        }
+
+        var hadStart = User32.GetWindowRect(Handle, out var start);
+        try
+        {
+            DragMove();
+        }
+        catch (InvalidOperationException)
+        {
+            // The button was released before the drag began (DragMove needs it held down).
+            return;
+        }
+
+        if (hadStart && User32.GetWindowRect(Handle, out var end) && (end.Left != start.Left || end.Top != start.Top))
+        {
+            Actions?.WindowMoved();
+        }
     }
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
@@ -364,6 +428,8 @@ internal sealed partial class PopupWindow : Window
     }
 
     private void OnSettingsClick(object sender, RoutedEventArgs e) => Actions?.OpenSettings();
+
+    private void OnCloseClick(object sender, RoutedEventArgs e) => Actions?.Close(restoreFocus: true);
 
     private void OnResumeClick(object sender, RoutedEventArgs e)
     {
